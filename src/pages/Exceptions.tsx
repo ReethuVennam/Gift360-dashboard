@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { RequireButton } from "../shared/RequireButton";
 import { Drawer } from "../shared/Drawer";
 import { useToast } from "../shared/ToastContext";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { useFetch } from "../lib/useApi";
 
 type Row = Record<string, unknown>;
@@ -19,6 +19,16 @@ interface ExceptionData {
 }
 
 type PriorityFilter = "All" | "Critical" | "High";
+
+const EMPTY_EXCEPTIONS: ExceptionData = {
+  summary: {
+    critical_open: 0,
+    high_open: 0,
+    investigating: 0,
+    resolved_today: 0,
+  },
+  data: [],
+};
 
 function statusClass(status: string): string {
   if (status === "Resolved") return "success";
@@ -62,7 +72,16 @@ export function Exceptions() {
   if (search) params.search = search;
 
   const exceptions = useFetch(
-    () => api.get<ExceptionData>("/exceptions", params),
+    async () => {
+      try {
+        return await api.get<ExceptionData>("/exceptions", params);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          return EMPTY_EXCEPTIONS;
+        }
+        throw err;
+      }
+    },
     [priorityFilter, moduleFilter, search]
   );
 

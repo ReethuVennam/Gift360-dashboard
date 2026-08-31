@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { RequireButton } from "../shared/RequireButton";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { useFetch } from "../lib/useApi";
 
 type Row = Record<string, unknown>;
@@ -28,6 +28,29 @@ interface BusinessOverviewData {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function emptyOverview(from: string, to: string, month: number, year: number): BusinessOverviewData {
+  return {
+    gmv: [],
+    transactions: {},
+    users: {},
+    vd_balance: [],
+    supercoins: {},
+    gift360_earn: {},
+    gift360_burn: {},
+    customer_earn: {},
+    customer_burn: {},
+    mdr: [],
+    profit: {},
+    brand_watchlist: {
+      high_margin_brands: [],
+      low_margin_brands: [],
+      high_sale_brands: [],
+      low_sale_brands: [],
+    },
+    meta: { from, to, month, year },
+  };
+}
 
 function fmt(val: unknown, prefix = ""): string {
   if (val === null || val === undefined) return "—";
@@ -61,7 +84,16 @@ export function BusinessOverview() {
   })();
 
   const overview = useFetch(
-    () => api.get<BusinessOverviewData>("/business/overview", { from: fromDate, to: toDate, month, year }),
+    async () => {
+      try {
+        return await api.get<BusinessOverviewData>("/business/overview", { from: fromDate, to: toDate, month, year });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          return emptyOverview(fromDate, toDate, month, year);
+        }
+        throw err;
+      }
+    },
     [fromDate, toDate, month, year]
   );
 
