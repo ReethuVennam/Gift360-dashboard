@@ -129,18 +129,21 @@ export function Customers() {
         {list.error && <div className="impact-box"><span>{list.error}</span></div>}
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Customer</th><th>Orders</th><th>Total spent</th><th>SuperCoins earned</th><th>Last order</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Customer</th><th>Mobile</th><th>Email</th><th>Orders</th><th>Total spent</th><th>SuperCoins earned</th><th>Vouchers received</th><th>Last order</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {list.loading && <tr><td colSpan={7} className="dim">Loading…</td></tr>}
-              {!list.loading && (list.data?.data.length ?? 0) === 0 && <tr><td colSpan={7} className="dim">No customers found.</td></tr>}
+              {list.loading && <tr><td colSpan={10} className="dim">Loading…</td></tr>}
+              {!list.loading && (list.data?.data.length ?? 0) === 0 && <tr><td colSpan={10} className="dim">No customers found.</td></tr>}
               {list.data?.data.map((row) => (
                 <tr key={row.client_id}>
                   <td onClick={() => setSelectedForAudit(row)} style={{ cursor: "pointer" }}>
-                    <b>{row.client_name}</b><br /><span className="muted mono" style={{ fontSize: "11px" }}>{row.client_id} · {row.client_mobile}</span>
+                    <b>{row.client_name}</b><br /><span className="muted mono" style={{ fontSize: "11px" }}>{row.client_id}</span>
                   </td>
+                  <td className="mono">{row.client_mobile}</td>
+                  <td className="mono">{row.client_email}</td>
                   <td className="num">{row.total_orders}</td>
                   <td className="num">₹{row.total_spent}</td>
                   <td className="num">{row.supercoins_earned}</td>
+                  <td className="num">{row.vouchers_received}</td>
                   <td className="num muted">{row.last_order_at ? new Date(row.last_order_at).toLocaleDateString() : "—"}</td>
                   <td><span className={"badge " + statusBadgeClass(row.client_account_status)}>{row.client_account_status}</span></td>
                   <td>

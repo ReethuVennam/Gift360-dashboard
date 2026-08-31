@@ -9,16 +9,26 @@ import { useFetch } from "../lib/useApi";
 interface FailedVoucher {
   order_number: string;
   order_item_id: string;
+  client_id: string;
   client_name: string;
+  client_email: string;
+  brand_code: string;
   brand_name: string;
+  quantity: number;
   last_evc_response_msg: string | null;
   last_evc_attempt_at: string | null;
+  paid_at: string | null;
+  order_status: string;
 }
 
 interface RetryEligible {
   original_order_number: string;
   order_item_id: string;
+  brand_id: string;
+  quantity: number;
   customer_name: string;
+  customer_email: string;
+  customer_mobile: string;
   line_total: number;
   order_paid_at: string;
 }
@@ -29,6 +39,13 @@ interface RetryMetrics {
 }
 
 type ListMode = "failed" | "retry-eligible";
+
+function orderStatusBadgeClass(status: string): string {
+  const s = status?.toUpperCase();
+  if (s === "PAID") return "success";
+  if (s === "PENDING") return "warning";
+  return "critical";
+}
 
 export function Vouchers() {
   const toast = useToast();
@@ -115,17 +132,23 @@ export function Vouchers() {
               <table className="data-table">
                 {listMode === "failed" ? (
                   <>
-                    <thead><tr><th>Order</th><th>Customer</th><th>Brand</th><th>Failure reason</th><th>Last attempt</th><th></th></tr></thead>
+                    <thead><tr><th>Order</th><th>Customer</th><th>Email</th><th>Brand</th><th>Qty</th><th>Failure reason</th><th>Last attempt</th><th>Paid at</th><th>Order status</th><th></th></tr></thead>
                     <tbody>
-                      {failed.loading && <tr><td colSpan={6} className="dim">Loading…</td></tr>}
-                      {!failed.loading && failedRows.length === 0 && <tr><td colSpan={6} className="dim">No failed vouchers.</td></tr>}
+                      {failed.loading && <tr><td colSpan={10} className="dim">Loading…</td></tr>}
+                      {!failed.loading && failedRows.length === 0 && <tr><td colSpan={10} className="dim">No failed vouchers.</td></tr>}
                       {failedRows.map((r) => (
                         <tr key={r.order_item_id}>
                           <td className="id-cell">{r.order_number}</td>
-                          <td>{r.client_name}</td>
-                          <td>{r.brand_name}</td>
+                          <td>
+                            <b>{r.client_name}</b><br /><span className="muted mono" style={{ fontSize: "11px" }}>{r.client_id}</span>
+                          </td>
+                          <td className="mono">{r.client_email}</td>
+                          <td>{r.brand_name}<br /><span className="muted mono" style={{ fontSize: "11px" }}>{r.brand_code}</span></td>
+                          <td className="num">{r.quantity}</td>
                           <td className="muted">{r.last_evc_response_msg ?? "—"}</td>
                           <td className="num muted">{r.last_evc_attempt_at ? new Date(r.last_evc_attempt_at).toLocaleString() : "—"}</td>
+                          <td className="num muted">{r.paid_at ? new Date(r.paid_at).toLocaleString() : "—"}</td>
+                          <td><span className={"badge " + orderStatusBadgeClass(r.order_status)}>{r.order_status}</span></td>
                           <td>
                             <RequireButton requires="vouchers:retry" className="btn btn-sm" onClick={() => openRetry(r.order_number, r.order_item_id)}>
                               <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 8v4l3 2" /></svg> Retry
@@ -137,14 +160,18 @@ export function Vouchers() {
                   </>
                 ) : (
                   <>
-                    <thead><tr><th>Order</th><th>Customer</th><th>Line total</th><th>Paid at</th><th></th></tr></thead>
+                    <thead><tr><th>Order</th><th>Customer</th><th>Email</th><th>Mobile</th><th>Brand</th><th>Qty</th><th>Line total</th><th>Paid at</th><th></th></tr></thead>
                     <tbody>
-                      {retryEligible.loading && <tr><td colSpan={5} className="dim">Loading…</td></tr>}
-                      {!retryEligible.loading && eligibleRows.length === 0 && <tr><td colSpan={5} className="dim">No retry-eligible items.</td></tr>}
+                      {retryEligible.loading && <tr><td colSpan={9} className="dim">Loading…</td></tr>}
+                      {!retryEligible.loading && eligibleRows.length === 0 && <tr><td colSpan={9} className="dim">No retry-eligible items.</td></tr>}
                       {eligibleRows.map((r) => (
                         <tr key={r.order_item_id}>
                           <td className="id-cell">{r.original_order_number}</td>
                           <td>{r.customer_name}</td>
+                          <td className="mono">{r.customer_email}</td>
+                          <td className="mono">{r.customer_mobile}</td>
+                          <td>{r.brand_id}</td>
+                          <td className="num">{r.quantity}</td>
                           <td className="num">₹{r.line_total}</td>
                           <td className="num muted">{new Date(r.order_paid_at).toLocaleString()}</td>
                           <td>

@@ -20,6 +20,8 @@ interface OrderRow {
   payment_method: string;
   coins_earned: number;
   coins_redeemed: number;
+  quantity: number;
+  is_gift: boolean;
   brand_name: string;
   voucher_status: string;
   order_item_id: string;
@@ -150,17 +152,17 @@ export function Orders() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Order #</th><th>Timestamp</th><th>Customer</th><th>Brand</th>
-                <th>Payment</th><th>Wallet Used</th><th>Coins Earned</th>
-                <th>Total</th><th>Voucher</th><th>Status</th>
+                <th>Order #</th><th>Timestamp</th><th>Customer</th><th>Brand</th><th>Qty</th>
+                <th>Payment</th><th>Wallet Used</th><th>Coins Earned</th><th>Coins Redeemed</th>
+                <th>Total</th><th>Gift</th><th>Voucher</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
               {list.loading && (
-                <tr><td colSpan={10} className="dim">Loading…</td></tr>
+                <tr><td colSpan={13} className="dim">Loading…</td></tr>
               )}
               {!list.loading && (list.data?.data.length ?? 0) === 0 && (
-                <tr><td colSpan={10} className="dim">No orders found.</td></tr>
+                <tr><td colSpan={13} className="dim">No orders found.</td></tr>
               )}
               {list.data?.data.map((row) => (
                 <tr
@@ -174,10 +176,13 @@ export function Orders() {
                   <td className="num muted">{new Date(row.created_at).toLocaleString()}</td>
                   <td>{row.client_name}</td>
                   <td>{row.brand_name}</td>
+                  <td className="num">{row.quantity}</td>
                   <td><span className="badge info">{row.payment_method}</span></td>
                   <td className="num">₹{row.wallet_amount}</td>
                   <td className="num">{row.coins_earned ?? "—"}</td>
+                  <td className="num">{row.coins_redeemed ?? "—"}</td>
                   <td className="num">₹{row.total_amount}</td>
+                  <td><span className={"badge " + (row.is_gift ? "success" : "neutral")}>{row.is_gift ? "Yes" : "No"}</span></td>
                   <td><span className={"badge " + statusBadgeClass(row.voucher_status)}>{row.voucher_status}</span></td>
                   <td><span className={"badge " + statusBadgeClass(row.order_status)}>{row.order_status}</span></td>
                 </tr>
