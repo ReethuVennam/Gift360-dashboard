@@ -11,7 +11,7 @@ export function BusinessOverview() {
         </div>
         <div className="flex gap-8">
           <span className="badge neutral">Source: Gift360 Master MIS</span>
-          <RequireButton requires="export" className="btn btn-sm">
+          <RequireButton requires="reports:export" className="btn btn-sm">
             <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 3v12M7 11l5 5 5-5" />
               <path d="M4 19h16" />
@@ -19,6 +19,11 @@ export function BusinessOverview() {
             Export MIS (Excel)
           </RequireButton>
         </div>
+      </div>
+
+      <div className="impact-box">
+        <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg>
+        <span>Not backend-supported yet — the admin API has no endpoint for GMV, MDR, profit or SuperCoin-contribution figures. Everything below is illustrative mock data, not live.</span>
       </div>
 
       <div className="panel">
@@ -453,12 +458,6 @@ export function BusinessOverview() {
           <h2>Voucher brand watchlist</h2>
           <div className="desc">Margin and volume outliers by brand — from the voucher catalogue</div>
         </div>
-        <Link to="/vouchers" className="btn btn-ghost btn-sm">
-          Open Vouchers{" "}
-          <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
       </div>
       <div className="report-grid">
         <div className="report-card">

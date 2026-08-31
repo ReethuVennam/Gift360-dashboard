@@ -79,6 +79,11 @@ export function Exceptions() {
 
   return (
     <>
+      <div className="impact-box">
+        <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg>
+        <span>Not backend-supported yet — the admin API has no exceptions/investigations feed endpoint. The rows below are illustrative mock data, not live.</span>
+      </div>
+
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <div className="kpi-card crit"><span className="kpi-bar critical"></span><div className="kpi-label">Critical, open</div><div className="kpi-value" data-count="2">0</div></div>
         <div className="kpi-card"><span className="kpi-bar critical"></span><div className="kpi-label">High, open</div><div className="kpi-value" data-count="5">0</div></div>
@@ -151,7 +156,7 @@ export function Exceptions() {
           <div className="drawer-section">
             <h4>Available actions</h4>
             <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-              <RequireButton requires="retry" className="btn btn-primary btn-sm"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg> Re-run wallet credit</RequireButton>
+              <RequireButton requires="wallet:view" className="btn btn-primary btn-sm"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg> Re-run wallet credit</RequireButton>
               <button className="btn btn-sm"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16l-2 9H6z"/><path d="M2 13h6l1.5 3h5L16 13h6"/><path d="M2 13v6a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-6"/></svg> Assign to me</button>
               <button className="btn btn-sm btn-ghost" onClick={() => toast('Marked resolved.')}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mark resolved</button>
             </div>

@@ -1,5 +1,7 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout } from "./shared/Layout";
+import { useAuth } from "./shared/AuthContext";
+import { Login } from "./pages/Login";
 import { Overview } from "./pages/Overview";
 import { BusinessOverview } from "./pages/BusinessOverview";
 import { Orders } from "./pages/Orders";
@@ -11,10 +13,26 @@ import { Refunds } from "./pages/Refunds";
 import { Exceptions } from "./pages/Exceptions";
 import { AuditLog } from "./pages/AuditLog";
 
+function RequireAuth({ children }: { children: React.ReactElement }) {
+  const { user, ready } = useAuth();
+  const location = useLocation();
+
+  if (!ready) return null;
+  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  return children;
+}
+
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Overview />} />
         <Route path="business" element={<BusinessOverview />} />
         <Route path="orders" element={<Orders />} />

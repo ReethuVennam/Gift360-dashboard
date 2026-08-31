@@ -1,7 +1,17 @@
 import type { ReactElement } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { SESSION } from "./rbac";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 import { VIEW_META } from "./viewMeta";
+import logo from "../assets/logo.jpeg";
+
+function initialsOf(name: string): string {
+  return name
+    .split(/[.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
 const NAV_ITEMS: { to: string; label: string; icon: ReactElement; count?: string; hot?: boolean }[] = [
   {
@@ -44,7 +54,6 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
   {
     to: "/customers",
     label: "Customers",
-    count: "3",
     icon: (
       <>
         <circle cx="9" cy="8" r="4" />
@@ -56,7 +65,6 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
   {
     to: "/vouchers",
     label: "Vouchers",
-    count: "12",
     icon: (
       <>
         <path d="M3 8a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" />
@@ -78,7 +86,6 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
   {
     to: "/refunds",
     label: "Refunds",
-    count: "5",
     icon: (
       <>
         <path d="M3 12a9 9 0 1 0 3-6.7" />
@@ -90,8 +97,6 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
   {
     to: "/exceptions",
     label: "Exceptions",
-    count: "7",
-    hot: true,
     icon: (
       <>
         <path d="M12 3 2 20h20z" />
@@ -128,16 +133,25 @@ function NavRow({ item }: { item: { to: string; label: string; icon: ReactElemen
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const meta = VIEW_META[location.pathname] ?? VIEW_META["/"];
+  const displayName = user?.username ?? "";
+  const initials = displayName ? initialsOf(displayName) : "";
+
+  function onLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">G</div>
+          <img className="brand-mark" src={logo} alt="Gift360" />
           <div className="brand-text">
             <div className="name">Gift360 Admin</div>
-            <div className="sub">Operations Console</div>
+            <div className="sub">Admin Console</div>
           </div>
         </div>
         <nav className="nav">
@@ -157,7 +171,7 @@ export function Layout() {
         <div className="sidebar-foot">
           <div className="role-chip">
             <span className="role-dot" />
-            <span>{SESSION.role}</span>
+            <span>{user?.email ?? "—"}</span>
           </div>
           <div className="faint" style={{ fontSize: 10, marginTop: 3 }}>
             dashboard.gift360.com
@@ -185,12 +199,19 @@ export function Layout() {
           <span className="dot" />
         </button>
         <div className="user-chip">
-          <div className="avatar">{SESSION.initials}</div>
+          <div className="avatar">{initials}</div>
           <div>
-            <div className="uname">{SESSION.name}</div>
-            <div className="urole">{SESSION.role}</div>
+            <div className="uname">{displayName}</div>
+            <div className="urole">{user?.permissions.length ?? 0} permissions</div>
           </div>
         </div>
+        <button className="icon-btn" title="Log out" onClick={onLogout}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
       </header>
       <main className="main">
         <div className="container">

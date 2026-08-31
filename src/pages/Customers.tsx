@@ -1,130 +1,214 @@
-import { useState } from 'react';
-import { RequireButton } from '../shared/RequireButton';
-import { Modal } from '../shared/Modal';
-import { useToast } from '../shared/ToastContext';
-import { CountUp } from '../shared/CountUp';
+import { useMemo, useState } from "react";
+import { RequireButton } from "../shared/RequireButton";
+import { Modal } from "../shared/Modal";
+import { useToast } from "../shared/ToastContext";
+import { CountUp } from "../shared/CountUp";
+import { api, ApiError } from "../lib/api";
+import { useFetch } from "../lib/useApi";
+
+interface CustomerRow {
+  client_id: string;
+  client_name: string;
+  client_email: string;
+  client_mobile: string;
+  client_account_status: string;
+  total_orders: number;
+  total_spent: number;
+  vouchers_received: number;
+  supercoins_earned: number;
+  last_order_at: string | null;
+}
+
+interface AuditRow {
+  admin_username: string;
+  action: string;
+  target_id: string | null;
+  previous_value: string | null;
+  new_value: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+const STATUSES = ["active", "pending_activation", "suspended", "closed"];
+
+function statusBadgeClass(status: string): string {
+  if (status === "active") return "success";
+  if (status === "suspended" || status === "closed") return "critical";
+  return "warning";
+}
 
 export function Customers() {
   const toast = useToast();
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(0);
+
+  const list = useFetch(
+    () =>
+      api.get<{ data: CustomerRow[]; page: number; size: number }>("/customers", {
+        search: search || undefined,
+        status: status || undefined,
+        page,
+        size: 50,
+      }),
+    [search, status, page]
+  );
+
+  const counts = useMemo(() => {
+    const rows = list.data?.data ?? [];
+    return {
+      total: rows.length,
+      active: rows.filter((r) => r.client_account_status === "active").length,
+      suspended: rows.filter((r) => r.client_account_status === "suspended").length,
+      pending: rows.filter((r) => r.client_account_status === "pending_activation").length,
+    };
+  }, [list.data]);
+
+  const [blockTarget, setBlockTarget] = useState<CustomerRow | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
-  const [unblockOpen, setUnblockOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [selectedForAudit, setSelectedForAudit] = useState<CustomerRow | null>(null);
+  const audit = useFetch(
+    () => (selectedForAudit ? api.get<{ data: AuditRow[] }>("/audit", { module: "customer", page: 0, size: 50 }) : Promise.resolve({ data: [] as AuditRow[] })),
+    [selectedForAudit]
+  );
+  const auditRowsForCustomer = (audit.data?.data ?? []).filter((r) => r.target_id === selectedForAudit?.client_id);
+
+  function openBlockModal(row: CustomerRow) {
+    setBlockTarget(row);
+    setReason("");
+    setBlockOpen(true);
+  }
+
+  async function confirmBlockToggle() {
+    if (!blockTarget) return;
+    const nextStatus = blockTarget.client_account_status === "active" ? "suspended" : "active";
+    setSubmitting(true);
+    try {
+      await api.post(`/customers/${blockTarget.client_id}/block`, { status: nextStatus, reason });
+      toast(`Customer ${blockTarget.client_name} is now ${nextStatus}. Recorded to audit log.`);
+      setBlockOpen(false);
+      list.refetch();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Update failed", "err");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <>
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        <div className="kpi-card crit"><span className="kpi-bar critical"></span><div className="kpi-label">Flagged (open)</div><CountUp target={18} className="kpi-value" /></div>
-        <div className="kpi-card"><span className="kpi-bar critical"></span><div className="kpi-label">Blocked customers</div><CountUp target={63} className="kpi-value" /></div>
-        <div className="kpi-card"><span className="kpi-bar warning"></span><div className="kpi-label">Auto-flagged today</div><CountUp target={5} className="kpi-value" /></div>
-        <div className="kpi-card"><span className="kpi-bar success"></span><div className="kpi-label">Cleared this week</div><CountUp target={11} className="kpi-value" /></div>
+      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">On this page</div><CountUp target={counts.total} className="kpi-value" /></div>
+        <div className="kpi-card"><span className="kpi-bar success"></span><div className="kpi-label">Active</div><CountUp target={counts.active} className="kpi-value" /></div>
+        <div className="kpi-card crit"><span className="kpi-bar critical"></span><div className="kpi-label">Suspended</div><CountUp target={counts.suspended} className="kpi-value" /></div>
+        <div className="kpi-card warn"><span className="kpi-bar warning"></span><div className="kpi-label">Pending activation</div><CountUp target={counts.pending} className="kpi-value" /></div>
       </div>
 
       <div className="panel">
         <div className="filterbar">
           <div className="search-wrap grow">
             <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-            <input className="input" placeholder="Search customer name, mobile, email or customer ID…" />
+            <input
+              className="input"
+              placeholder="Search customer name, mobile, email or customer ID…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { setPage(0); setSearch(searchInput); } }}
+            />
           </div>
-          <select className="select"><option>All statuses</option><option>Flagged</option><option>Blocked</option><option>Active</option></select>
-          <select className="select"><option>All risk reasons</option><option>Velocity abuse</option><option>Voucher abuse</option><option>Chargeback pattern</option></select>
+          <select className="select" value={status} onChange={(e) => { setPage(0); setStatus(e.target.value); }}>
+            <option value="">All statuses</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button className="btn" onClick={() => { setPage(0); setSearch(searchInput); }}>Search</button>
         </div>
+        {list.error && <div className="impact-box"><span>{list.error}</span></div>}
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Customer</th><th>Risk indicators</th><th>Orders (30d)</th><th>Flagged reason</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Customer</th><th>Orders</th><th>Total spent</th><th>SuperCoins earned</th><th>Last order</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              <tr>
-                <td><b>Neha Kapoor</b><br /><span className="muted mono" style={{ fontSize: '11px' }}>CUST-55021 · +91 98221xxxxx</span></td>
-                <td><span className="badge critical">Velocity</span> <span className="badge warning">Voucher abuse</span></td>
-                <td className="num">41</td>
-                <td>17 voucher redemptions in 24h from same device</td>
-                <td><span className="badge critical">Blocked</span></td>
-                <td><RequireButton requires="unblock" className="btn btn-sm" onClick={() => setUnblockOpen(true)}>Unblock</RequireButton></td>
-              </tr>
-              <tr>
-                <td><b>Rohit Agarwal</b><br /><span className="muted mono" style={{ fontSize: '11px' }}>CUST-55118 · +91 90011xxxxx</span></td>
-                <td><span className="badge warning">Chargeback pattern</span></td>
-                <td className="num">9</td>
-                <td>2 disputed PG transactions in 14 days</td>
-                <td><span className="badge warning">Flagged</span></td>
-                <td><RequireButton requires="block" className="btn btn-sm btn-danger" onClick={() => setBlockOpen(true)}>Block</RequireButton></td>
-              </tr>
-              <tr>
-                <td><b>Simran Kaur</b><br /><span className="muted mono" style={{ fontSize: '11px' }}>CUST-55210 · +91 97711xxxxx</span></td>
-                <td><span className="badge critical">Velocity</span></td>
-                <td className="num">28</td>
-                <td>Order velocity 6x above customer average</td>
-                <td><span className="badge warning">Flagged</span></td>
-                <td><RequireButton requires="block" className="btn btn-sm btn-danger" onClick={() => setBlockOpen(true)}>Block</RequireButton></td>
-              </tr>
-              <tr>
-                <td><b>Deepak Verma</b><br /><span className="muted mono" style={{ fontSize: '11px' }}>CUST-54890 · +91 91002xxxxx</span></td>
-                <td><span className="badge neutral">Under review</span></td>
-                <td className="num">14</td>
-                <td>Multiple accounts share a device fingerprint</td>
-                <td><span className="badge neutral">Active</span></td>
-                <td><RequireButton requires="block" className="btn btn-sm btn-danger" onClick={() => setBlockOpen(true)}>Block</RequireButton></td>
-              </tr>
+              {list.loading && <tr><td colSpan={7} className="dim">Loading…</td></tr>}
+              {!list.loading && (list.data?.data.length ?? 0) === 0 && <tr><td colSpan={7} className="dim">No customers found.</td></tr>}
+              {list.data?.data.map((row) => (
+                <tr key={row.client_id}>
+                  <td onClick={() => setSelectedForAudit(row)} style={{ cursor: "pointer" }}>
+                    <b>{row.client_name}</b><br /><span className="muted mono" style={{ fontSize: "11px" }}>{row.client_id} · {row.client_mobile}</span>
+                  </td>
+                  <td className="num">{row.total_orders}</td>
+                  <td className="num">₹{row.total_spent}</td>
+                  <td className="num">{row.supercoins_earned}</td>
+                  <td className="num muted">{row.last_order_at ? new Date(row.last_order_at).toLocaleDateString() : "—"}</td>
+                  <td><span className={"badge " + statusBadgeClass(row.client_account_status)}>{row.client_account_status}</span></td>
+                  <td>
+                    {row.client_account_status === "active" ? (
+                      <RequireButton requires="customers:block" className="btn btn-sm btn-danger" onClick={() => openBlockModal(row)}>Suspend</RequireButton>
+                    ) : (
+                      <RequireButton requires="customers:block" className="btn btn-sm" onClick={() => openBlockModal(row)}>Reactivate</RequireButton>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <div className="pager">
-          <span>Showing <b className="mono">1–4</b> of <b className="mono">18</b> flagged customers</span>
           <div className="pager-btns">
-            <button><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
-            <button className="active">1</button>
-            <button>2</button>
-            <button><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></button>
+            <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</button>
+            <span className="mono" style={{ padding: "0 8px" }}>Page {page + 1}</span>
+            <button disabled={(list.data?.data.length ?? 0) < 50} onClick={() => setPage((p) => p + 1)}>Next</button>
           </div>
         </div>
       </div>
 
-      <div className="panel">
-        <div className="panel-head"><h3>Customer audit trail — CUST-55021</h3><div className="desc">Every block / unblock decision, with actor and reason</div></div>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead><tr><th>Timestamp</th><th>Action</th><th>Admin</th><th>Previous → New</th><th>Reason</th></tr></thead>
-            <tbody>
-              <tr><td className="num muted">27 Aug, 13:02</td><td><span className="badge critical">Block</span></td><td>Ravi M.</td><td className="mono">Active → Blocked</td><td>Repeated voucher abuse — 17 redemptions/24h.</td></tr>
-              <tr><td className="num muted">02 Aug, 09:14</td><td><span className="badge success">Unblock</span></td><td>Meera J.</td><td className="mono">Blocked → Active</td><td>Manual review cleared prior flag; false positive.</td></tr>
-              <tr><td className="num muted">30 Jul, 18:47</td><td><span className="badge critical">Block</span></td><td>System</td><td className="mono">Active → Blocked</td><td>Auto-flag: velocity threshold exceeded.</td></tr>
-            </tbody>
-          </table>
+      {selectedForAudit && (
+        <div className="panel">
+          <div className="panel-head"><h3>Customer audit trail — {selectedForAudit.client_name}</h3><div className="desc">Block / unblock decisions recorded for this customer, from the admin audit log</div></div>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Timestamp</th><th>Action</th><th>Admin</th><th>Previous → New</th><th>Reason</th></tr></thead>
+              <tbody>
+                {audit.loading && <tr><td colSpan={5} className="dim">Loading…</td></tr>}
+                {!audit.loading && auditRowsForCustomer.length === 0 && <tr><td colSpan={5} className="dim">No recorded actions for this customer.</td></tr>}
+                {auditRowsForCustomer.map((r, i) => (
+                  <tr key={i}>
+                    <td className="num muted">{new Date(r.created_at).toLocaleString()}</td>
+                    <td><span className="badge critical">{r.action}</span></td>
+                    <td>{r.admin_username}</td>
+                    <td className="mono">{r.previous_value} → {r.new_value}</td>
+                    <td>{r.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal open={blockOpen} onClose={() => setBlockOpen(false)}>
-        <div className="modal-head"><h3>Block customer</h3><button className="icon-btn" onClick={() => setBlockOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button></div>
+        <div className="modal-head">
+          <h3>{blockTarget?.client_account_status === "active" ? "Suspend customer" : "Reactivate customer"}</h3>
+          <button className="icon-btn" onClick={() => setBlockOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        </div>
         <div className="modal-body">
-          <div className="impact-box"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg><span>Blocking prevents this customer from placing new orders, redeeming vouchers, and using wallet/SuperCoins immediately. Existing orders are not affected.</span></div>
+          <div className="impact-box"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg><span>Suspending prevents this customer from placing new orders, redeeming vouchers, and using wallet/SuperCoins immediately.</span></div>
           <div className="kv-list">
-            <div className="kv-row"><span className="k">Customer</span><span className="v">Rohit Agarwal</span></div>
-            <div className="kv-row"><span className="k">Customer ID</span><span className="v">CUST-55118</span></div>
+            <div className="kv-row"><span className="k">Customer</span><span className="v">{blockTarget?.client_name}</span></div>
+            <div className="kv-row"><span className="k">Customer ID</span><span className="v">{blockTarget?.client_id}</span></div>
           </div>
           <div className="field">
-            <label>Reason for blocking <span className="dim">(required)</span></label>
-            <textarea className="input" placeholder="e.g. Confirmed chargeback pattern across 2 PG transactions"></textarea>
+            <label>Reason <span className="dim">(required)</span></label>
+            <textarea className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Confirmed chargeback pattern"></textarea>
           </div>
         </div>
         <div className="modal-foot">
           <button className="btn" onClick={() => setBlockOpen(false)}>Cancel</button>
-          <button className="btn btn-danger" onClick={() => { setBlockOpen(false); toast('Customer CUST-55118 blocked. Recorded to audit log.'); }}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> Confirm block</button>
-        </div>
-      </Modal>
-
-      <Modal open={unblockOpen} onClose={() => setUnblockOpen(false)}>
-        <div className="modal-head"><h3>Unblock customer</h3><button className="icon-btn" onClick={() => setUnblockOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button></div>
-        <div className="modal-body">
-          <div className="kv-list">
-            <div className="kv-row"><span className="k">Customer</span><span className="v">Neha Kapoor</span></div>
-            <div className="kv-row"><span className="k">Blocked since</span><span className="v">27 Aug, 13:02</span></div>
-          </div>
-          <div className="field">
-            <label>Reason for unblocking <span className="dim">(required)</span></label>
-            <textarea className="input" placeholder="e.g. Manual review confirms legitimate usage"></textarea>
-          </div>
-        </div>
-        <div className="modal-foot">
-          <button className="btn" onClick={() => setUnblockOpen(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { setUnblockOpen(false); toast('Customer CUST-55021 unblocked. Recorded to audit log.'); }}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> Confirm unblock</button>
+          <button className="btn btn-danger" disabled={!reason.trim() || submitting} onClick={confirmBlockToggle}>
+            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> {submitting ? "Saving…" : "Confirm"}
+          </button>
         </div>
       </Modal>
     </>

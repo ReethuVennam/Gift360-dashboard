@@ -1,0 +1,767 @@
+{
+  "info": {
+    "name": "Gift360 Admin Backend",
+    "description": "All admin API endpoints for testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.token) { pm.collectionVariables.set('token', res.token); }",
+                  "pm.test('Login successful', function() { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Dashboard",
+      "item": [
+        {
+          "name": "Summary (Last 30 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/dashboard/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "dashboard", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Summary (Custom date)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/dashboard/summary?from=2026-08-01&to=2026-08-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "dashboard", "summary"],
+              "query": [
+                { "key": "from", "value": "2026-08-01" },
+                { "key": "to", "value": "2026-08-27" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Orders",
+      "item": [
+        {
+          "name": "Orders List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Orders with date filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?from=2026-08-01&to=2026-08-27&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "from", "value": "2026-08-01" },
+                { "key": "to", "value": "2026-08-27" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Orders filter by voucher status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?voucherStatus=failed&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "voucherStatus", "value": "failed" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Orders filter by payment method",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?paymentMethod=SUPERCOIN&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "paymentMethod", "value": "SUPERCOIN" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Orders search",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?search=rahul&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "search", "value": "rahul" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Order Detail (use orderNumber from list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/GF-88213",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "GF-88213"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Customers",
+      "item": [
+        {
+          "name": "Customer List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers?search=rahul&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers"],
+              "query": [
+                { "key": "search", "value": "rahul" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers/CUST-55021",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers", "CUST-55021"]
+            }
+          }
+        },
+        {
+          "name": "Customer Journey",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers/CUST-55021/journey",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers", "CUST-55021", "journey"]
+            }
+          }
+        },
+        {
+          "name": "Block Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"Velocity abuse detected\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers/CUST-55021/block",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers", "CUST-55021", "block"]
+            }
+          }
+        },
+        {
+          "name": "Unblock Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"reason\": \"False positive - verified identity\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers/CUST-55021/block",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers", "CUST-55021", "block"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Vouchers",
+      "item": [
+        {
+          "name": "Failed Vouchers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vouchers/failed?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vouchers", "failed"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retry Eligible",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vouchers/retry-eligible",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vouchers", "retry-eligible"]
+            }
+          }
+        },
+        {
+          "name": "Retry Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vouchers/retry-metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vouchers", "retry-metrics"]
+            }
+          }
+        },
+        {
+          "name": "Execute Retry",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderNumber\": \"GF-88213\",\n  \"orderItemId\": \"item-id-here\",\n  \"reason\": \"Customer reported missing voucher\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vouchers/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vouchers", "retry"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - SuperCoins",
+      "item": [
+        {
+          "name": "SuperCoin Trend",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/supercoins/trend",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "supercoins", "trend"]
+            }
+          }
+        },
+        {
+          "name": "SuperCoin Trend (custom dates)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/supercoins/trend?from=2026-08-01&to=2026-08-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "supercoins", "trend"],
+              "query": [
+                { "key": "from", "value": "2026-08-01" },
+                { "key": "to", "value": "2026-08-27" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Wallet",
+      "item": [
+        {
+          "name": "Wallet Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/wallet/CUST-55021",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "wallet", "CUST-55021"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Reports",
+      "item": [
+        {
+          "name": "Brand Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/brands",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "brands"]
+            }
+          }
+        },
+        {
+          "name": "Geography",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/geography",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "geography"]
+            }
+          }
+        },
+        {
+          "name": "Error Breakdown",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/errors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "errors"]
+            }
+          }
+        },
+        {
+          "name": "Abandoned Carts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/abandoned?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "abandoned"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retention",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/retention",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "retention"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Refunds",
+      "item": [
+        {
+          "name": "Refund Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/refunds/GF-88213/check",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "refunds", "GF-88213", "check"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Config",
+      "item": [
+        {
+          "name": "Get SuperCoin Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config/supercoin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config", "supercoin"]
+            }
+          }
+        },
+        {
+          "name": "Get Wallet Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config", "wallet"]
+            }
+          }
+        },
+        {
+          "name": "Get Retry Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config", "retry"]
+            }
+          }
+        },
+        {
+          "name": "Update SuperCoin Config",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"cap_percent\",\n  \"value\": \"30\",\n  \"reason\": \"Increasing cap per business request\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config/supercoin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config", "supercoin"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Investigations",
+      "item": [
+        {
+          "name": "Get Investigation Notes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/investigations?entityType=ORDER&entityId=GF-88213",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "investigations"],
+              "query": [
+                { "key": "entityType", "value": "ORDER" },
+                { "key": "entityId", "value": "GF-88213" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Investigation Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityType\": \"ORDER\",\n  \"entityId\": \"GF-88213\",\n  \"note\": \"Customer called about missing voucher. EVC returned timeout error. Retrying.\",\n  \"isInternal\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/investigations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "investigations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Audit Log",
+      "item": [
+        {
+          "name": "Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/audit?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "audit"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Audit Log filter by module",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/audit?module=auth&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "audit"],
+              "query": [
+                { "key": "module", "value": "auth" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - RBAC",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles"]
+            }
+          }
+        },
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "permissions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Logout",
+      "item": [
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

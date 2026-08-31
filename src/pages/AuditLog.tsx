@@ -1,35 +1,125 @@
+import { useMemo, useState } from 'react';
 import { RequireButton } from '../shared/RequireButton';
+import { useToast } from '../shared/ToastContext';
+import { api } from '../lib/api';
+import { useFetch } from '../lib/useApi';
+
+interface AuditRow {
+  id: number;
+  admin_username: string;
+  action: string;
+  module: string;
+  target_entity: string | null;
+  target_id: string | null;
+  previous_value: string | null;
+  new_value: string | null;
+  reason: string | null;
+  result: string;
+  created_at: string;
+}
+
+const MODULES = ['auth', 'customer', 'voucher', 'config', 'order'];
+
+type RangeKey = 'today' | '7d' | '30d';
+
+function rangeToDates(range: RangeKey): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to);
+  if (range === '7d') from.setDate(from.getDate() - 7);
+  else if (range === '30d') from.setDate(from.getDate() - 30);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(from), to: iso(to) };
+}
 
 export function AuditLog() {
+  const toast = useToast();
+  const [module, setModule] = useState('');
+  const [range, setRange] = useState<RangeKey>('7d');
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [adminFilter, setAdminFilter] = useState('');
+
+  const { from, to } = rangeToDates(range);
+  const list = useFetch(
+    () =>
+      api.get<{ data: AuditRow[]; page: number; size: number }>('/audit', {
+        module: module || undefined,
+        from,
+        to,
+        page,
+        size: 50,
+      }),
+    [module, from, to, page]
+  );
+
+  const admins = useMemo(() => {
+    const names = new Set((list.data?.data ?? []).map((r) => r.admin_username));
+    return Array.from(names);
+  }, [list.data]);
+
+  const rows = (list.data?.data ?? []).filter((r) => {
+    if (adminFilter && r.admin_username !== adminFilter) return false;
+    if (search) {
+      const needle = search.toLowerCase();
+      const haystack = `${r.target_id ?? ''} ${r.target_entity ?? ''}`.toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  });
+
   return (
     <>
       <div className="panel">
         <div className="filterbar">
-          <select className="select"><option>All modules</option><option>Orders</option><option>Voucher</option><option>Wallet</option><option>Refund</option><option>Customer</option></select>
-          <select className="select"><option>All actions</option><option>Retry</option><option>Block</option><option>Unblock</option><option>Update</option><option>Refund</option><option>Export</option></select>
-          <select className="select"><option>All admins</option><option>Ravi Menon</option><option>Meera J.</option><option>Arjun K.</option><option>Priya S.</option></select>
-          <div className="chip-group"><span className="chip">Today</span><span className="chip active">7d</span><span className="chip">30d</span><span className="chip">Custom</span></div>
-          <div className="search-wrap grow"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input className="input" placeholder="Target ID (order, customer, config)…" /></div>
-          <RequireButton requires="export" className="btn btn-primary"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 19h16"/></svg> Export</RequireButton>
+          <select className="select" value={module} onChange={(e) => { setPage(0); setModule(e.target.value); }}>
+            <option value="">All modules</option>
+            {MODULES.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select className="select" value={adminFilter} onChange={(e) => setAdminFilter(e.target.value)}>
+            <option value="">All admins (this page)</option>
+            {admins.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <div className="chip-group">
+            <span className={'chip' + (range === 'today' ? ' active' : '')} onClick={() => { setPage(0); setRange('today'); }}>Today</span>
+            <span className={'chip' + (range === '7d' ? ' active' : '')} onClick={() => { setPage(0); setRange('7d'); }}>7d</span>
+            <span className={'chip' + (range === '30d' ? ' active' : '')} onClick={() => { setPage(0); setRange('30d'); }}>30d</span>
+          </div>
+          <div className="search-wrap grow">
+            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            <input className="input" placeholder="Target ID (order, customer, config)…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <RequireButton requires="audit:view" className="btn btn-primary" onClick={() => toast('CSV export is not implemented in the API yet.', 'err')}>
+            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 11l5 5 5-5" /><path d="M4 19h16" /></svg> Export
+          </RequireButton>
         </div>
+        {list.error && <div className="impact-box"><span>{list.error}</span></div>}
         <div className="table-wrap">
           <table className="data-table">
             <thead><tr><th>Timestamp</th><th>Actor</th><th>Module</th><th>Action</th><th>Target</th><th>Before → After</th><th>Reason</th><th>Result</th></tr></thead>
             <tbody>
-              <tr><td className="num muted">27 Aug, 14:29</td><td>Ravi Menon</td><td><span className="badge info">Voucher</span></td><td>Retry</td><td className="id-cell">GF-88213</td><td className="mono">Failed → Pending</td><td className="muted">Provider timeout recovery</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">27 Aug, 14:10</td><td>Arjun K.</td><td><span className="badge neutral">Voucher Config</span></td><td>Update</td><td className="id-cell">discount_pct</td><td className="mono">12% → 15%</td><td className="muted">Festive campaign</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">27 Aug, 13:52</td><td>Meera J.</td><td><span className="badge critical">Refund</span></td><td>Refund</td><td className="id-cell">GF-87990</td><td className="mono">Eligible → Initiated</td><td className="muted">Customer-confirmed non-delivery</td><td><span className="badge warning">Pending</span></td></tr>
-              <tr><td className="num muted">27 Aug, 13:02</td><td>Ravi Menon</td><td><span className="badge warning">Customer</span></td><td>Block</td><td className="id-cell">CUST-55021</td><td className="mono">Active → Blocked</td><td className="muted">Repeated voucher abuse</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">27 Aug, 11:40</td><td>Priya S.</td><td><span className="badge info">Voucher</span></td><td>Retry</td><td className="id-cell">GF-87994</td><td className="mono">Retry-eligible → Pending</td><td className="muted">Auto-backoff exhausted</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">26 Aug, 18:20</td><td>System</td><td><span className="badge warning">Customer</span></td><td>Block</td><td className="id-cell">CUST-55118</td><td className="mono">Active → Flagged</td><td className="muted">Auto-flag: chargeback pattern</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">26 Aug, 16:05</td><td>Ravi Menon</td><td><span className="badge neutral">Reports</span></td><td>Export</td><td className="id-cell">voucher_failures_7d.csv</td><td className="mono">—</td><td className="muted">Weekly ops review</td><td><span className="badge success">Success</span></td></tr>
-              <tr><td className="num muted">25 Aug, 09:14</td><td>Meera J.</td><td><span className="badge warning">Customer</span></td><td>Unblock</td><td className="id-cell">CUST-55021</td><td className="mono">Blocked → Active</td><td className="muted">False positive, manually cleared</td><td><span className="badge success">Success</span></td></tr>
+              {list.loading && <tr><td colSpan={8} className="dim">Loading…</td></tr>}
+              {!list.loading && rows.length === 0 && <tr><td colSpan={8} className="dim">No audit records found.</td></tr>}
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="num muted">{new Date(r.created_at).toLocaleString()}</td>
+                  <td>{r.admin_username}</td>
+                  <td><span className="badge info">{r.module}</span></td>
+                  <td>{r.action}</td>
+                  <td className="id-cell">{r.target_id ?? r.target_entity ?? '—'}</td>
+                  <td className="mono">{r.previous_value ?? '—'} → {r.new_value ?? '—'}</td>
+                  <td className="muted">{r.reason ?? '—'}</td>
+                  <td><span className={'badge ' + (r.result === 'SUCCESS' ? 'success' : 'critical')}>{r.result}</span></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <div className="pager">
-          <span>Showing <b className="mono">1–8</b> of <b className="mono">2,140</b> audit records</span>
-          <div className="pager-btns"><button><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></button><button className="active">1</button><button>2</button><button>3</button><button>…</button><button>268</button><button><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></button></div>
+          <div className="pager-btns">
+            <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</button>
+            <span className="mono" style={{ padding: '0 8px' }}>Page {page + 1}</span>
+            <button disabled={(list.data?.data.length ?? 0) < 50} onClick={() => setPage((p) => p + 1)}>Next</button>
+          </div>
         </div>
       </div>
 

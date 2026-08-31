@@ -115,12 +115,10 @@ table{ border-collapse:collapse; width:100%; }
   flex-shrink:0;
 }
 .brand-mark{
-  width:30px; height:30px; border-radius:8px;
-  background:linear-gradient(155deg,var(--accent) 0%, var(--accent-dim) 100%);
-  display:flex; align-items:center; justify-content:center;
-  font-family:var(--font-mono); font-weight:700; font-size:13px; color:#fff;
+  width:44px; height:44px;
+  object-fit:contain;
+  object-position:left center;
   flex-shrink:0;
-  box-shadow:var(--shadow-sm);
 }
 .brand-text .name{ font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--text); }
 .brand-text .sub{ font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; }

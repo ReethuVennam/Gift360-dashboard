@@ -1,21 +1,76 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { CountUp } from "../shared/CountUp";
+import { api } from "../lib/api";
+import { useFetch } from "../lib/useApi";
+
+interface DashboardSummary {
+  total_orders: number;
+  paid_orders: number;
+  pending_orders: number;
+  failed_orders: number;
+  cancelled_orders: number;
+  total_revenue: number;
+  total_wallet_used: number;
+  unique_customers: number;
+  vouchers_generated: number;
+  vouchers_failed: number;
+  supercoins_earned: number;
+  supercoins_burnt: number;
+  supercoins_refunded: number;
+}
+
+interface AuditRow {
+  admin_username: string;
+  action: string;
+  module: string;
+  target_id: string | null;
+  reason: string | null;
+  result: string;
+  created_at: string;
+}
+
+type RangeKey = "today" | "7d" | "30d";
+
+function rangeToDates(range: RangeKey): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to);
+  if (range === "7d") from.setDate(from.getDate() - 7);
+  else if (range === "30d") from.setDate(from.getDate() - 30);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(from), to: iso(to) };
+}
+
+function dotClass(result: string): string {
+  return result === "SUCCESS" ? "success" : result === "FAILURE" ? "critical" : "warning";
+}
 
 export function Overview() {
-  const navigate = useNavigate();
+  const [range, setRange] = useState<RangeKey>("today");
+  const { from, to } = rangeToDates(range);
+
+  const summary = useFetch(
+    () => api.get<{ data: DashboardSummary }>("/dashboard/summary", { from, to }),
+    [from, to]
+  );
+  const activity = useFetch(() => api.get<{ data: AuditRow[] }>("/audit", { page: 0, size: 6 }), []);
+
+  const s = summary.data?.data;
+  const voucherTotal = (s?.vouchers_generated ?? 0) + (s?.vouchers_failed ?? 0);
+  const voucherHealth = voucherTotal > 0 ? ((s?.vouchers_generated ?? 0) / voucherTotal) * 100 : 0;
 
   return (
     <>
       <div className="section-head">
         <div>
           <h2>Today at a glance</h2>
-          <div className="desc">Auto-refreshing operational snapshot — Thu, 27 Aug 2026, 14:32 IST</div>
+          <div className="desc">Operational snapshot for {from} to {to}</div>
         </div>
         <div className="flex gap-8">
           <div className="chip-group">
-            <span className="chip active">Today</span>
-            <span className="chip">7 Days</span>
-            <span className="chip">30 Days</span>
+            <span className={"chip" + (range === "today" ? " active" : "")} onClick={() => setRange("today")}>Today</span>
+            <span className={"chip" + (range === "7d" ? " active" : "")} onClick={() => setRange("7d")}>7 Days</span>
+            <span className={"chip" + (range === "30d" ? " active" : "")} onClick={() => setRange("30d")}>30 Days</span>
           </div>
           <Link to="/reports" className="btn btn-sm">
             <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/></svg> Full reports
@@ -23,54 +78,50 @@ export function Overview() {
         </div>
       </div>
 
+      {summary.error && <div className="impact-box"><span>{summary.error}</span></div>}
+
       <div className="kpi-grid">
         <div className="kpi-card">
           <span className="kpi-bar info"></span>
           <div className="kpi-top"><span className="kpi-label">Total Orders</span></div>
-          <CountUp target={4812} className="kpi-value" />
-          <div className="kpi-delta up"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg> 6.2% vs yesterday</div>
+          <CountUp target={s?.total_orders ?? 0} className="kpi-value" />
         </div>
         <div className="kpi-card">
           <span className="kpi-bar success"></span>
-          <div className="kpi-top"><span className="kpi-label">Successful</span></div>
-          <CountUp target={4498} className="kpi-value" />
-          <div className="kpi-delta up"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg> 93.5% success rate</div>
+          <div className="kpi-top"><span className="kpi-label">Paid</span></div>
+          <CountUp target={s?.paid_orders ?? 0} className="kpi-value" />
         </div>
         <div className="kpi-card crit">
           <span className="kpi-bar critical"></span>
           <div className="kpi-top"><span className="kpi-label">Failed</span></div>
-          <CountUp target={187} className="kpi-value" />
-          <div className="kpi-delta down"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> 3.9% of volume</div>
+          <CountUp target={s?.failed_orders ?? 0} className="kpi-value" />
         </div>
         <div className="kpi-card warn">
           <span className="kpi-bar warning"></span>
           <div className="kpi-top"><span className="kpi-label">Pending</span></div>
-          <CountUp target={127} className="kpi-value" />
+          <CountUp target={s?.pending_orders ?? 0} className="kpi-value" />
           <div className="dim" style={{ fontSize: "11px" }}>awaiting PG/voucher confirmation</div>
         </div>
         <div className="kpi-card">
           <span className="kpi-bar accent"></span>
-          <div className="kpi-top"><span className="kpi-label">PG-Paid Amount</span></div>
-          <CountUp target={3184620} prefix="₹" className="kpi-value" />
-          <div className="dim" style={{ fontSize: "11px" }}>across 4,102 PG orders</div>
+          <div className="kpi-top"><span className="kpi-label">Revenue</span></div>
+          <CountUp target={s?.total_revenue ?? 0} prefix="₹" className="kpi-value" />
         </div>
         <div className="kpi-card">
           <span className="kpi-bar info"></span>
           <div className="kpi-top"><span className="kpi-label">Voucher Health</span></div>
-          <CountUp target={97.1} suffix="%" decimals={1} className="kpi-value" />
-          <div className="dim" style={{ fontSize: "11px" }}>312 pending / 89 retry-eligible</div>
+          <CountUp target={voucherHealth} suffix="%" decimals={1} className="kpi-value" />
+          <div className="dim" style={{ fontSize: "11px" }}>{s?.vouchers_failed ?? 0} failed of {voucherTotal}</div>
         </div>
         <div className="kpi-card">
           <span className="kpi-bar accent"></span>
-          <div className="kpi-top"><span className="kpi-label">Wallet + SuperCoins Used</span></div>
-          <CountUp target={512340} prefix="₹" className="kpi-value" />
-          <div className="dim" style={{ fontSize: "11px" }}>710 orders touched wallet</div>
+          <div className="kpi-top"><span className="kpi-label">Wallet Used</span></div>
+          <CountUp target={s?.total_wallet_used ?? 0} prefix="₹" className="kpi-value" />
         </div>
-        <div className="kpi-card crit">
-          <span className="kpi-bar critical"></span>
-          <div className="kpi-top"><span className="kpi-label">Critical Exceptions</span></div>
-          <CountUp target={7} className="kpi-value" />
-          <div className="dim" style={{ fontSize: "11px" }}>open, needs investigation</div>
+        <div className="kpi-card">
+          <span className="kpi-bar info"></span>
+          <div className="kpi-top"><span className="kpi-label">Unique Customers</span></div>
+          <CountUp target={s?.unique_customers ?? 0} className="kpi-value" />
         </div>
       </div>
 
@@ -79,53 +130,14 @@ export function Overview() {
           <div className="panel-head">
             <div>
               <h3>Critical exceptions</h3>
-              <div className="desc">Highest-priority items requiring operator action right now</div>
+              <div className="desc">No backend endpoint yet — figures below are illustrative, not live</div>
             </div>
             <Link to="/exceptions" className="btn btn-ghost btn-sm">
               View all <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
             </Link>
           </div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead><tr><th>Priority</th><th>Type</th><th>Order</th><th>Detected</th><th></th></tr></thead>
-              <tbody>
-                <tr onClick={() => navigate("/exceptions")}>
-                  <td><span className="priority critical">Critical</span></td>
-                  <td>Wallet credit inconsistency</td>
-                  <td className="id-cell">GF-88213</td>
-                  <td className="num muted">3m ago</td>
-                  <td><span className="badge critical">Open</span></td>
-                </tr>
-                <tr onClick={() => navigate("/exceptions")}>
-                  <td><span className="priority high">High</span></td>
-                  <td>Refund failed</td>
-                  <td className="id-cell">GF-88190</td>
-                  <td className="num muted">11m ago</td>
-                  <td><span className="badge critical">Open</span></td>
-                </tr>
-                <tr onClick={() => navigate("/exceptions")}>
-                  <td><span className="priority high">High</span></td>
-                  <td>Voucher generation failed</td>
-                  <td className="id-cell">GF-88176</td>
-                  <td className="num muted">24m ago</td>
-                  <td><span className="badge warning">Investigating</span></td>
-                </tr>
-                <tr onClick={() => navigate("/exceptions")}>
-                  <td><span className="priority high">High</span></td>
-                  <td>Unexpected payment state</td>
-                  <td className="id-cell">GF-88150</td>
-                  <td className="num muted">51m ago</td>
-                  <td><span className="badge critical">Open</span></td>
-                </tr>
-                <tr onClick={() => navigate("/exceptions")}>
-                  <td><span className="priority high">High</span></td>
-                  <td>Repeated operational failure</td>
-                  <td className="id-cell">GF-88099</td>
-                  <td className="num muted">1h ago</td>
-                  <td><span className="badge warning">Investigating</span></td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="panel-body">
+            <p className="dim" style={{ fontSize: "12px" }}>Awaiting a backend endpoint for the exceptions feed — see the Exceptions page for details.</p>
           </div>
         </div>
 
@@ -140,37 +152,23 @@ export function Overview() {
             </Link>
           </div>
           <div className="panel-body">
+            {activity.loading && <p className="dim">Loading…</p>}
+            {activity.error && <p className="dim">{activity.error}</p>}
+            {!activity.loading && !activity.error && (activity.data?.data.length ?? 0) === 0 && (
+              <p className="dim">No recent activity.</p>
+            )}
             <div className="timeline">
-              <div className="t-item">
-                <span className="t-dot success"></span>
-                <div className="t-time">14:28 · Priya S.</div>
-                <div className="t-title">Voucher retry succeeded</div>
-                <div className="t-desc">Order <span className="mono">GF-88041</span> — retry #2 issued voucher successfully.</div>
-              </div>
-              <div className="t-item">
-                <span className="t-dot warning"></span>
-                <div className="t-time">14:10 · Arjun K.</div>
-                <div className="t-title">Voucher discount updated</div>
-                <div className="t-desc">Changed from <span className="mono">12%</span> to <span className="mono">15%</span>, reason: festive campaign.</div>
-              </div>
-              <div className="t-item">
-                <span className="t-dot success"></span>
-                <div className="t-time">13:52 · Meera J.</div>
-                <div className="t-title">Refund initiated</div>
-                <div className="t-desc">Order <span className="mono">GF-87990</span> — ₹1,240 refund sent to provider.</div>
-              </div>
-              <div className="t-item">
-                <span className="t-dot critical"></span>
-                <div className="t-time">13:35 · System</div>
-                <div className="t-title">Customer auto-flagged</div>
-                <div className="t-desc"><span className="mono">+91 98•••210</span> flagged for velocity abuse — pending review.</div>
-              </div>
-              <div className="t-item">
-                <span className="t-dot success"></span>
-                <div className="t-time">13:02 · Ravi M.</div>
-                <div className="t-title">Customer blocked</div>
-                <div className="t-desc"><span className="mono">CUST-55021</span> blocked — reason: repeated voucher abuse.</div>
-              </div>
+              {activity.data?.data.map((row, i) => (
+                <div className="t-item" key={i}>
+                  <span className={"t-dot " + dotClass(row.result)}></span>
+                  <div className="t-time">{new Date(row.created_at).toLocaleString()} · {row.admin_username}</div>
+                  <div className="t-title">{row.action} — {row.module}</div>
+                  <div className="t-desc">
+                    {row.target_id && <span className="mono">{row.target_id}</span>}
+                    {row.reason ? ` — ${row.reason}` : ""}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

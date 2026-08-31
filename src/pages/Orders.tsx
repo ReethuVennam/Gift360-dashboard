@@ -1,223 +1,202 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { RequireButton } from "../shared/RequireButton";
 import { Drawer } from "../shared/Drawer";
+import { useToast } from "../shared/ToastContext";
+import { api, ApiError } from "../lib/api";
+import { useFetch } from "../lib/useApi";
 
 interface OrderRow {
-  order: string;
-  timestamp: string;
-  customer: string;
-  customerCell: string;
-  type: string;
-  typeBadge: string;
-  typeBadgeClass: string;
-  walletUsedCredited: string;
-  superCoinsUsedCredited: string;
-  pgAmount: string;
-  pgRef: string;
-  voucherLabel: string;
-  voucherClass: string;
-  status: string;
+  order_id: string;
+  order_number: string;
+  client_name: string;
+  client_email: string;
+  client_mobile: string;
+  total_amount: number;
+  order_status: string;
+  created_at: string;
+  wallet_used: number;
+  wallet_amount: number;
+  payment_method: string;
+  coins_earned: number;
+  coins_redeemed: number;
+  brand_name: string;
+  voucher_status: string;
+  order_item_id: string;
 }
 
-const ORDER_ROWS: OrderRow[] = [
-  {
-    order: "GF-88213",
-    timestamp: "27 Aug, 14:29",
-    customer: "Neha Kapoor · +91 98221xxxxx",
-    customerCell: "Neha Kapoor",
-    type: "Normal PG order",
-    typeBadge: "PG",
-    typeBadgeClass: "info",
-    walletUsedCredited: "₹0 / ₹0",
-    superCoinsUsedCredited: "0 / 0",
-    pgAmount: "₹2,499",
-    pgRef: "PG-TXN-9931",
-    voucherLabel: "Failed",
-    voucherClass: "critical",
-    status: "Failed",
-  },
-  {
-    order: "GF-88207",
-    timestamp: "27 Aug, 14:22",
-    customer: "Suresh Iyer · +91 90001xxxxx",
-    customerCell: "Suresh Iyer",
-    type: "SuperCoin order",
-    typeBadge: "SuperCoin",
-    typeBadgeClass: "neutral",
-    walletUsedCredited: "₹0 / ₹0",
-    superCoinsUsedCredited: "340 / 0",
-    pgAmount: "₹0",
-    pgRef: "—",
-    voucherLabel: "Generated",
-    voucherClass: "success",
-    status: "Success",
-  },
-  {
-    order: "GF-88199",
-    timestamp: "27 Aug, 14:15",
-    customer: "Ayesha Khan · +91 99887xxxxx",
-    customerCell: "Ayesha Khan",
-    type: "Normal PG order",
-    typeBadge: "PG",
-    typeBadgeClass: "info",
-    walletUsedCredited: "₹150 / ₹0",
-    superCoinsUsedCredited: "0 / 12",
-    pgAmount: "₹1,850",
-    pgRef: "PG-TXN-9924",
-    voucherLabel: "Generated",
-    voucherClass: "success",
-    status: "Success",
-  },
-  {
-    order: "GF-88190",
-    timestamp: "27 Aug, 14:03",
-    customer: "Karan Bose · +91 91234xxxxx",
-    customerCell: "Karan Bose",
-    type: "Normal PG order",
-    typeBadge: "PG",
-    typeBadgeClass: "info",
-    walletUsedCredited: "₹0 / ₹0",
-    superCoinsUsedCredited: "0 / 0",
-    pgAmount: "₹3,999",
-    pgRef: "PG-TXN-9915",
-    voucherLabel: "Pending",
-    voucherClass: "warning",
-    status: "Pending",
-  },
-  {
-    order: "GF-88176",
-    timestamp: "27 Aug, 13:58",
-    customer: "Divya Nair · +91 96543xxxxx",
-    customerCell: "Divya Nair",
-    type: "Normal PG order",
-    typeBadge: "PG",
-    typeBadgeClass: "info",
-    walletUsedCredited: "₹0 / ₹0",
-    superCoinsUsedCredited: "0 / 0",
-    pgAmount: "₹999",
-    pgRef: "PG-TXN-9902",
-    voucherLabel: "Failed",
-    voucherClass: "critical",
-    status: "Success",
-  },
-  {
-    order: "GF-88150",
-    timestamp: "27 Aug, 13:41",
-    customer: "Farhan Sheikh · +91 93456xxxxx",
-    customerCell: "Farhan Sheikh",
-    type: "Normal PG order",
-    typeBadge: "PG",
-    typeBadgeClass: "info",
-    walletUsedCredited: "₹500 / ₹0",
-    superCoinsUsedCredited: "0 / 45",
-    pgAmount: "₹4,250",
-    pgRef: "PG-TXN-9887",
-    voucherLabel: "Generated",
-    voucherClass: "success",
-    status: "Success",
-  },
-  {
-    order: "GF-88099",
-    timestamp: "27 Aug, 12:58",
-    customer: "Ritu Sharma · +91 92345xxxxx",
-    customerCell: "Ritu Sharma",
-    type: "SuperCoin order",
-    typeBadge: "SuperCoin",
-    typeBadgeClass: "neutral",
-    walletUsedCredited: "₹0 / ₹0",
-    superCoinsUsedCredited: "220 / 0",
-    pgAmount: "₹0",
-    pgRef: "—",
-    voucherLabel: "Failed",
-    voucherClass: "critical",
-    status: "Failed",
-  },
-];
+interface OrderDetailHeader {
+  order_number: string;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+  client_name: string;
+  client_email: string;
+  client_mobile: string;
+  wallet_used: number;
+  wallet_amount: number;
+  payment_method: string;
+}
+
+interface OrderDetailItem {
+  order_item_id: string;
+  brand_name: string;
+  line_total: number;
+  last_evc_response_code: string | null;
+  last_evc_response_msg: string | null;
+}
 
 function statusBadgeClass(status: string): string {
-  return status === "Success" ? "success" : status === "Pending" ? "warning" : "critical";
+  const s = status?.toUpperCase();
+  if (s === "PAID" || s === "SUCCESS" || s === "GENERATED") return "success";
+  if (s === "PENDING" || s === "NOT_APPLICABLE_PENDING") return "warning";
+  return "critical";
 }
 
-export function Orders() {
-  const [selected, setSelected] = useState<OrderRow | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+const VOUCHER_STATUSES = ["GENERATED", "FAILED", "NOT_APPLICABLE_PENDING", "NOT_APPLICABLE_FAILED"];
+const PAYMENT_METHODS = ["UPI", "CARD", "WALLET"];
 
-  const odId = selected?.order ?? "GF-88213";
-  const odCustomer = selected?.customer ?? "Neha Kapoor";
-  const odType = selected?.type ?? "Normal PG order";
-  const odStatus = selected?.status ?? "Failed";
+export function Orders() {
+  const toast = useToast();
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [voucherStatus, setVoucherStatus] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [page, setPage] = useState(0);
+
+  const list = useFetch(
+    () =>
+      api.get<{ data: OrderRow[]; page: number; size: number }>("/orders", {
+        search: search || undefined,
+        voucherStatus: voucherStatus || undefined,
+        paymentMethod: paymentMethod || undefined,
+        page,
+        size: 50,
+      }),
+    [search, voucherStatus, paymentMethod, page]
+  );
+
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detail, setDetail] = useState<[OrderDetailHeader, OrderDetailItem[], unknown[], unknown[]] | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+    setDetailLoading(true);
+    setDetail(null);
+    api
+      .get<{ data: [OrderDetailHeader, OrderDetailItem[], unknown[], unknown[]] }>(`/orders/${selectedOrder}`)
+      .then((res) => setDetail(res.data))
+      .catch((err) => toast(err instanceof ApiError ? err.message : "Failed to load order detail", "err"))
+      .finally(() => setDetailLoading(false));
+  }, [selectedOrder]);
+
+  const header = detail?.[0];
+  const items = detail?.[1] ?? [];
+
+  async function onRetry() {
+    if (!selectedOrder || items.length === 0) return;
+    setRetrying(true);
+    try {
+      await api.post("/vouchers/retry", {
+        orderNumber: selectedOrder,
+        orderItemId: items[0].order_item_id,
+        reason: "Retried from admin dashboard",
+      });
+      toast("Retry queued for " + selectedOrder + ".");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Retry failed", "err");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   return (
     <>
       <div className="panel">
         <div className="filterbar">
-          <div className="chip-group">
-            <span className="chip">Today</span>
-            <span className="chip">Yesterday</span>
-            <span className="chip">7d</span>
-            <span className="chip active">10d</span>
-            <span className="chip">30d</span>
-            <span className="chip">Custom</span>
-          </div>
-          <select className="select">
-            <option>All statuses</option>
-            <option>Success</option>
-            <option>Failed</option>
-            <option>Pending</option>
+          <select className="select" value={voucherStatus} onChange={(e) => { setPage(0); setVoucherStatus(e.target.value); }}>
+            <option value="">All voucher statuses</option>
+            {VOUCHER_STATUSES.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
           </select>
-          <select className="select">
-            <option>All order types</option>
-            <option>Normal PG order</option>
-            <option>SuperCoin order</option>
-          </select>
-          <select className="select">
-            <option>All payment types</option>
-            <option>Card</option>
-            <option>UPI</option>
-            <option>Wallet</option>
+          <select className="select" value={paymentMethod} onChange={(e) => { setPage(0); setPaymentMethod(e.target.value); }}>
+            <option value="">All payment methods</option>
+            {PAYMENT_METHODS.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
           </select>
           <div className="search-wrap grow">
             <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input className="input" placeholder="Order ID, customer, mobile or reference…" />
+            <input
+              className="input"
+              placeholder="Order #, customer, mobile or client ID…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { setPage(0); setSearch(searchInput); }
+              }}
+            />
           </div>
-          <button className="btn"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M7 10h10M10 15h4"/></svg> More filters</button>
-          <RequireButton requires="export" className="btn btn-primary"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 19h16"/></svg> Export</RequireButton>
+          <button className="btn btn-primary" onClick={() => { setPage(0); setSearch(searchInput); }}>Search</button>
         </div>
+
+        {list.error && <div className="impact-box"><span>{list.error}</span></div>}
 
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Order ID</th><th>Timestamp</th><th>Customer</th><th>Type</th>
-                <th>Wallet Used / Credited</th><th>SuperCoins Used / Credited</th>
-                <th>PG Amount</th><th>PG Ref</th><th>Voucher</th><th>Status</th>
+                <th>Order #</th><th>Timestamp</th><th>Customer</th><th>Brand</th>
+                <th>Payment</th><th>Wallet Used</th><th>Coins Earned</th>
+                <th>Total</th><th>Voucher</th><th>Status</th>
               </tr>
             </thead>
-            <tbody id="orders-body">
-              {ORDER_ROWS.map((row) => (
+            <tbody>
+              {list.loading && (
+                <tr><td colSpan={10} className="dim">Loading…</td></tr>
+              )}
+              {!list.loading && (list.data?.data.length ?? 0) === 0 && (
+                <tr><td colSpan={10} className="dim">No orders found.</td></tr>
+              )}
+              {list.data?.data.map((row) => (
                 <tr
-                  key={row.order}
+                  key={row.order_id}
                   onClick={() => {
-                    setSelected(row);
+                    setSelectedOrder(row.order_number);
                     setDrawerOpen(true);
                   }}
                 >
-                  <td className="id-cell">{row.order}</td><td className="num muted">{row.timestamp}</td><td>{row.customerCell}</td>
-                  <td><span className={"badge " + row.typeBadgeClass}>{row.typeBadge}</span></td><td className="num">{row.walletUsedCredited}</td><td className="num">{row.superCoinsUsedCredited}</td>
-                  <td className="num">{row.pgAmount}</td><td className="num muted">{row.pgRef}</td>
-                  <td><span className={"badge " + row.voucherClass}>{row.voucherLabel}</span></td><td><span className={"badge " + statusBadgeClass(row.status)}>{row.status}</span></td>
+                  <td className="id-cell">{row.order_number}</td>
+                  <td className="num muted">{new Date(row.created_at).toLocaleString()}</td>
+                  <td>{row.client_name}</td>
+                  <td>{row.brand_name}</td>
+                  <td><span className="badge info">{row.payment_method}</span></td>
+                  <td className="num">₹{row.wallet_used}</td>
+                  <td className="num">{row.coins_earned}</td>
+                  <td className="num">₹{row.total_amount}</td>
+                  <td><span className={"badge " + statusBadgeClass(row.voucher_status)}>{row.voucher_status}</span></td>
+                  <td><span className={"badge " + statusBadgeClass(row.order_status)}>{row.order_status}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="pager">
-          <span>Showing <b className="mono">1–7</b> of <b className="mono">4,812</b> orders</span>
+          <span>Page <b className="mono">{page + 1}</b></span>
           <div className="pager-btns">
-            <button><svg className="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-            <button className="active">1</button><button>2</button><button>3</button><button>…</button><button>688</button>
-            <button><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+            <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+              <svg className="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <button
+              disabled={(list.data?.data.length ?? 0) < 50}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -226,56 +205,61 @@ export function Orders() {
         <div className="drawer-head">
           <div>
             <div className="dim" style={{ fontSize: "10.5px", textTransform: "uppercase", letterSpacing: ".06em" }}>Order detail</div>
-            <h3 id="od-id" className="mono" style={{ fontSize: "16px", marginTop: "2px" }}>{odId}</h3>
+            <h3 className="mono" style={{ fontSize: "16px", marginTop: "2px" }}>{selectedOrder}</h3>
           </div>
           <button className="icon-btn" onClick={() => setDrawerOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div className="drawer-body">
-          <div className="drawer-section">
-            <h4>Status</h4>
-            <div className="flex gap-8">
-              <span className={"badge " + statusBadgeClass(odStatus)} id="od-status">{odStatus}</span>
-              <span className="badge info" id="od-type">{odType}</span>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Customer</h4>
-            <div className="kv-list">
-              <div className="kv-row"><span className="k">Customer</span><span className="v" id="od-customer">{odCustomer}</span></div>
-              <div className="kv-row"><span className="k">Placed</span><span className="v">27 Aug, 14:29 IST</span></div>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Payment breakdown</h4>
-            <div className="kv-list">
-              <div className="kv-row"><span className="k">PG amount</span><span className="v">₹2,499</span></div>
-              <div className="kv-row"><span className="k">PG reference</span><span className="v">PG-TXN-9931</span></div>
-              <div className="kv-row"><span className="k">Wallet used / credited</span><span className="v">₹0 / ₹0</span></div>
-              <div className="kv-row"><span className="k">SuperCoins used / credited</span><span className="v">0 / 0</span></div>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Voucher</h4>
-            <div className="kv-list">
-              <div className="kv-row"><span className="k">Generation status</span><span className="v"><span className="badge critical">Failed</span></span></div>
-              <div className="kv-row"><span className="k">Failure reason</span><span className="v" style={{ fontFamily: "inherit" }}>Provider timeout (504)</span></div>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Timeline</h4>
-            <div className="timeline">
-              <div className="t-item"><span className="t-dot critical"></span><div className="t-time">14:29:41</div><div className="t-title">Voucher generation failed</div><div className="t-desc">Provider returned timeout after 8.2s.</div></div>
-              <div className="t-item"><span className="t-dot success"></span><div className="t-time">14:29:22</div><div className="t-title">Payment captured</div><div className="t-desc">PG-TXN-9931 · ₹2,499 captured.</div></div>
-              <div className="t-item"><span className="t-dot success"></span><div className="t-time">14:29:02</div><div className="t-title">Order created</div><div className="t-desc">Order placed by customer.</div></div>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Actions</h4>
-            <div className="flex gap-8">
-              <RequireButton requires="retry" className="btn btn-primary btn-sm"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg> Retry voucher</RequireButton>
-              <Link className="btn btn-sm" to="/exceptions"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg> Open in Exceptions</Link>
-            </div>
-          </div>
+          {detailLoading && <p className="dim">Loading…</p>}
+          {!detailLoading && header && (
+            <>
+              <div className="drawer-section">
+                <h4>Status</h4>
+                <div className="flex gap-8">
+                  <span className={"badge " + statusBadgeClass(header.status)}>{header.status}</span>
+                  <span className="badge info">{header.payment_method}</span>
+                </div>
+              </div>
+              <div className="drawer-section">
+                <h4>Customer</h4>
+                <div className="kv-list">
+                  <div className="kv-row"><span className="k">Customer</span><span className="v">{header.client_name}</span></div>
+                  <div className="kv-row"><span className="k">Contact</span><span className="v">{header.client_email} · {header.client_mobile}</span></div>
+                  <div className="kv-row"><span className="k">Placed</span><span className="v">{new Date(header.created_at).toLocaleString()}</span></div>
+                </div>
+              </div>
+              <div className="drawer-section">
+                <h4>Payment breakdown</h4>
+                <div className="kv-list">
+                  <div className="kv-row"><span className="k">Wallet used</span><span className="v">₹{header.wallet_used}</span></div>
+                  <div className="kv-row"><span className="k">Wallet credited</span><span className="v">₹{header.wallet_amount}</span></div>
+                </div>
+              </div>
+              <div className="drawer-section">
+                <h4>Items</h4>
+                <div className="kv-list">
+                  {items.map((it) => (
+                    <div className="kv-row" key={it.order_item_id}>
+                      <span className="k">{it.brand_name}</span>
+                      <span className="v">
+                        ₹{it.line_total}
+                        {it.last_evc_response_msg && <> — <span className="dim">{it.last_evc_response_msg}</span></>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="drawer-section">
+                <h4>Actions</h4>
+                <div className="flex gap-8">
+                  <RequireButton requires="vouchers:retry" className="btn btn-primary btn-sm" disabled={retrying} onClick={onRetry}>
+                    <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg> {retrying ? "Retrying…" : "Retry voucher"}
+                  </RequireButton>
+                  <Link className="btn btn-sm" to="/exceptions"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg> Open in Exceptions</Link>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </Drawer>
     </>

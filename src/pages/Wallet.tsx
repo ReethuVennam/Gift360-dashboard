@@ -2,268 +2,166 @@ import { useState } from "react";
 import { RequireButton } from "../shared/RequireButton";
 import { Modal } from "../shared/Modal";
 import { useToast } from "../shared/ToastContext";
-import { CountUp } from "../shared/CountUp";
+import { api, ApiError } from "../lib/api";
+import { useFetch } from "../lib/useApi";
+
+interface ConfigEntry {
+  config_key: string;
+  config_value: string;
+}
+
+interface WalletBalance {
+  voucher_cashback_balance: number;
+  total_balance: number;
+  pending_earn_fraction: number;
+}
+
+interface WalletTxn {
+  transaction_type: string;
+  amount: number;
+  previous_balance: number;
+  new_balance: number;
+  created_at: string;
+  notes: string | null;
+}
 
 export function Wallet() {
   const toast = useToast();
-  const [deductionOpen, setDeductionOpen] = useState(false);
-  const [creditOpen, setCreditOpen] = useState(false);
+  const config = useFetch(() => api.get<{ data: ConfigEntry[] }>("/config/wallet"), []);
+
+  const [editKey, setEditKey] = useState<ConfigEntry | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function openEdit(entry: ConfigEntry) {
+    setEditKey(entry);
+    setEditValue(entry.config_value);
+    setEditReason("");
+  }
+
+  async function confirmEdit() {
+    if (!editKey) return;
+    setSaving(true);
+    try {
+      await api.put(`/config/wallet`, { key: editKey.config_key, value: editValue, reason: editReason });
+      toast(`${editKey.config_key} update sent. Note: config updates are not yet persisted server-side.`);
+      setEditKey(null);
+      config.refetch();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Update failed", "err");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const [clientIdInput, setClientIdInput] = useState("");
+  const [lookupId, setLookupId] = useState<string | null>(null);
+  const walletDetail = useFetch(
+    () => (lookupId ? api.get<{ data: [WalletBalance, WalletTxn[]] }>(`/wallet/${lookupId}`) : Promise.resolve(null)),
+    [lookupId]
+  );
+  const balance = walletDetail.data?.data[0];
+  const txns = walletDetail.data?.data[1] ?? [];
 
   return (
     <>
-      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <div className="kpi-card">
-          <span className="kpi-bar accent"></span>
-          <div className="kpi-label">Wallet used today</div>
-          <CountUp target={512340} prefix="₹" className="kpi-value" />
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-bar success"></span>
-          <div className="kpi-label">Wallet credited today</div>
-          <CountUp target={98410} prefix="₹" className="kpi-value" />
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-bar info"></span>
-          <div className="kpi-label">SuperCoins used</div>
-          <CountUp target={41820} className="kpi-value" />
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-bar info"></span>
-          <div className="kpi-label">SuperCoins credited</div>
-          <CountUp target={12990} className="kpi-value" />
-        </div>
-      </div>
-
-      <div className="grid-2">
-        <div className="config-card">
-          <span className="cur-label">Wallet deduction rate</span>
-          <span className="cur-value">2.0%</span>
-          <div className="dim" style={{ fontSize: "11.5px" }}>Last changed 18 Aug by Meera J.</div>
-          <hr className="rule" />
-          <div className="field">
-            <label>New deduction rate (%)</label>
-            <input className="input" type="number" placeholder="e.g. 2.5" style={{ width: "100%" }} />
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h3>Wallet configuration</h3>
+            <div className="desc">Live from <span className="mono">GET /config/wallet</span> — updates are sent to the backend but not yet persisted (placeholder endpoint).</div>
           </div>
-          <div className="field">
-            <label>Reason for change <span className="dim">(required)</span></label>
-            <textarea className="input" placeholder="Reason for updating deduction rate"></textarea>
-          </div>
-          <RequireButton requires="config" className="btn btn-primary" onClick={() => setDeductionOpen(true)}>
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>{" "}
-            Save deduction rate
-          </RequireButton>
         </div>
-
-        <div className="config-card">
-          <span className="cur-label">Wallet credit rate</span>
-          <span className="cur-value">1.5%</span>
-          <div className="dim" style={{ fontSize: "11.5px" }}>Last changed 02 Aug by Ravi M.</div>
-          <hr className="rule" />
-          <div className="field">
-            <label>New credit rate (%)</label>
-            <input className="input" type="number" placeholder="e.g. 1.8" style={{ width: "100%" }} />
-          </div>
-          <div className="field">
-            <label>Reason for change <span className="dim">(required)</span></label>
-            <textarea className="input" placeholder="Reason for updating credit rate"></textarea>
-          </div>
-          <RequireButton requires="config" className="btn btn-primary" onClick={() => setCreditOpen(true)}>
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>{" "}
-            Save credit rate
-          </RequireButton>
+        {config.error && <div className="impact-box"><span>{config.error}</span></div>}
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+            <tbody>
+              {config.loading && <tr><td colSpan={3} className="dim">Loading…</td></tr>}
+              {!config.loading && (config.data?.data.length ?? 0) === 0 && <tr><td colSpan={3} className="dim">No config entries returned.</td></tr>}
+              {config.data?.data.map((entry) => (
+                <tr key={entry.config_key}>
+                  <td className="mono">{entry.config_key}</td>
+                  <td className="num">{entry.config_value}</td>
+                  <td><RequireButton requires="config:manage" className="btn btn-sm" onClick={() => openEdit(entry)}>Edit</RequireButton></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h3>Change history</h3>
-            <div className="desc">Old value, new value, admin, timestamp and reason — every configuration change</div>
+            <h3>Customer wallet lookup</h3>
+            <div className="desc">There's no multi-customer wallet activity feed in the API yet — look up one customer's balance and transactions by client ID.</div>
           </div>
         </div>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Field</th>
-                <th>Old</th>
-                <th>New</th>
-                <th>Admin</th>
-                <th>When</th>
-                <th>Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Deduction rate</td>
-                <td className="num">1.8%</td>
-                <td className="num">2.0%</td>
-                <td>Meera J.</td>
-                <td className="muted">18 Aug</td>
-                <td className="muted">Aligning with provider cost update</td>
-              </tr>
-              <tr>
-                <td>Credit rate</td>
-                <td className="num">1.2%</td>
-                <td className="num">1.5%</td>
-                <td>Ravi M.</td>
-                <td className="muted">02 Aug</td>
-                <td className="muted">Loyalty program boost</td>
-              </tr>
-              <tr>
-                <td>Deduction rate</td>
-                <td className="num">2.0%</td>
-                <td className="num">1.8%</td>
-                <td>Arjun K.</td>
-                <td className="muted">14 Jul</td>
-                <td className="muted">Temporary promo</td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="panel-body">
+          <div className="filterbar">
+            <div className="search-wrap grow">
+              <input
+                className="input"
+                placeholder="Customer / client UUID…"
+                value={clientIdInput}
+                onChange={(e) => setClientIdInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") setLookupId(clientIdInput.trim()); }}
+              />
+            </div>
+            <button className="btn btn-primary" onClick={() => setLookupId(clientIdInput.trim())} disabled={!clientIdInput.trim()}>Look up</button>
+          </div>
+
+          {walletDetail.loading && <p className="dim">Loading…</p>}
+          {walletDetail.error && <div className="impact-box"><span>{walletDetail.error}</span></div>}
+
+          {balance && (
+            <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)", marginTop: "12px" }}>
+              <div className="kpi-card"><span className="kpi-bar accent"></span><div className="kpi-label">Total balance</div><div className="kpi-value">₹{balance.total_balance}</div></div>
+              <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Voucher cashback balance</div><div className="kpi-value">₹{balance.voucher_cashback_balance}</div></div>
+              <div className="kpi-card"><span className="kpi-bar warning"></span><div className="kpi-label">Pending earn fraction</div><div className="kpi-value">{balance.pending_earn_fraction}</div></div>
+            </div>
+          )}
+
+          {txns.length > 0 && (
+            <div className="table-wrap" style={{ marginTop: "12px" }}>
+              <table className="data-table">
+                <thead><tr><th>Type</th><th>Amount</th><th>Previous</th><th>New</th><th>Notes</th><th>Time</th></tr></thead>
+                <tbody>
+                  {txns.map((t, i) => (
+                    <tr key={i}>
+                      <td><span className={"badge " + (t.transaction_type === "CREDIT" ? "success" : "warning")}>{t.transaction_type}</span></td>
+                      <td className="num">₹{t.amount}</td>
+                      <td className="num">₹{t.previous_balance}</td>
+                      <td className="num">₹{t.new_balance}</td>
+                      <td className="muted">{t.notes}</td>
+                      <td className="num muted">{new Date(t.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <h3>Recent wallet / SuperCoins activity</h3>
-        </div>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Customer</th>
-                <th>Wallet used</th>
-                <th>Wallet credited</th>
-                <th>SuperCoins used</th>
-                <th>SuperCoins credited</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="id-cell">GF-88199</td>
-                <td>Ayesha Khan</td>
-                <td className="num">₹150</td>
-                <td className="num">₹0</td>
-                <td className="num">0</td>
-                <td className="num">12</td>
-                <td className="num muted">14:15</td>
-              </tr>
-              <tr>
-                <td className="id-cell">GF-88150</td>
-                <td>Farhan Sheikh</td>
-                <td className="num">₹500</td>
-                <td className="num">₹0</td>
-                <td className="num">0</td>
-                <td className="num">45</td>
-                <td className="num muted">13:41</td>
-              </tr>
-              <tr>
-                <td className="id-cell">GF-88041</td>
-                <td>Priya S.</td>
-                <td className="num">₹0</td>
-                <td className="num">₹80</td>
-                <td className="num">30</td>
-                <td className="num">0</td>
-                <td className="num muted">13:10</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <Modal open={deductionOpen} onClose={() => setDeductionOpen(false)}>
-        <div className="modal-head">
-          <h3>Confirm deduction rate change</h3>
-          <button className="icon-btn" onClick={() => setDeductionOpen(false)}>
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+      <Modal open={!!editKey} onClose={() => setEditKey(null)}>
+        <div className="modal-head"><h3>Update {editKey?.config_key}</h3><button className="icon-btn" onClick={() => setEditKey(null)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button></div>
         <div className="modal-body">
-          <div className="impact-box">
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3 2 20h20z" />
-              <path d="M12 10v4M12 17h.01" />
-            </svg>
-            <span>This rate applies to all wallet deductions from the next transaction onward.</span>
+          <div className="impact-box"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg><span>This backend endpoint currently echoes the value back but does not persist it.</span></div>
+          <div className="field">
+            <label>New value</label>
+            <input className="input" style={{ width: "100%" }} value={editValue} onChange={(e) => setEditValue(e.target.value)} />
           </div>
-          <div className="kv-list">
-            <div className="kv-row">
-              <span className="k">Current</span>
-              <span className="v">2.0%</span>
-            </div>
-            <div className="kv-row">
-              <span className="k">New</span>
-              <span className="v">as entered</span>
-            </div>
+          <div className="field">
+            <label>Reason <span className="dim">(required)</span></label>
+            <textarea className="input" value={editReason} onChange={(e) => setEditReason(e.target.value)}></textarea>
           </div>
         </div>
         <div className="modal-foot">
-          <button className="btn" onClick={() => setDeductionOpen(false)}>Cancel</button>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setDeductionOpen(false);
-              toast("Wallet deduction rate updated. Recorded to audit log.");
-            }}
-          >
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>{" "}
-            Confirm
-          </button>
-        </div>
-      </Modal>
-
-      <Modal open={creditOpen} onClose={() => setCreditOpen(false)}>
-        <div className="modal-head">
-          <h3>Confirm credit rate change</h3>
-          <button className="icon-btn" onClick={() => setCreditOpen(false)}>
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="modal-body">
-          <div className="impact-box">
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3 2 20h20z" />
-              <path d="M12 10v4M12 17h.01" />
-            </svg>
-            <span>This rate applies to all wallet credits from the next transaction onward.</span>
-          </div>
-          <div className="kv-list">
-            <div className="kv-row">
-              <span className="k">Current</span>
-              <span className="v">1.5%</span>
-            </div>
-            <div className="kv-row">
-              <span className="k">New</span>
-              <span className="v">as entered</span>
-            </div>
-          </div>
-        </div>
-        <div className="modal-foot">
-          <button className="btn" onClick={() => setCreditOpen(false)}>Cancel</button>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setCreditOpen(false);
-              toast("Wallet credit rate updated. Recorded to audit log.");
-            }}
-          >
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>{" "}
-            Confirm
-          </button>
+          <button className="btn" onClick={() => setEditKey(null)}>Cancel</button>
+          <button className="btn btn-primary" disabled={!editReason.trim() || saving} onClick={confirmEdit}>{saving ? "Saving…" : "Confirm"}</button>
         </div>
       </Modal>
     </>
