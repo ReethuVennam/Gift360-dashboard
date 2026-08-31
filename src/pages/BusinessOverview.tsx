@@ -1,13 +1,92 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { RequireButton } from "../shared/RequireButton";
+import { api } from "../lib/api";
+import { useFetch } from "../lib/useApi";
+
+type Row = Record<string, unknown>;
+
+interface BusinessOverviewData {
+  gmv: Row[];
+  transactions: Row;
+  users: Row;
+  vd_balance: Row[];
+  supercoins: Row;
+  gift360_earn: Row;
+  gift360_burn: Row;
+  customer_earn: Row;
+  customer_burn: Row;
+  mdr: Row[];
+  profit: Row;
+  brand_watchlist: {
+    high_margin_brands: Row[];
+    low_margin_brands: Row[];
+    high_sale_brands: Row[];
+    low_sale_brands: Row[];
+  };
+  meta: { from: string; to: string; month: number; year: number };
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function fmt(val: unknown, prefix = ""): string {
+  if (val === null || val === undefined) return "—";
+  const n = Number(val);
+  if (isNaN(n)) return String(val);
+  if (n >= 10_000_000) return `${prefix}${(n / 10_000_000).toFixed(2)} Cr`;
+  if (n >= 100_000) return `${prefix}${(n / 100_000).toFixed(2)} L`;
+  return `${prefix}${n.toLocaleString("en-IN")}`;
+}
+
+function pct(val: unknown): string {
+  if (val === null || val === undefined) return "—";
+  const n = Number(val);
+  return isNaN(n) ? String(val) : `${n.toFixed(1)}%`;
+}
+
+function rowVal(row: Row | undefined | null, key: string): unknown {
+  return row?.[key];
+}
 
 export function BusinessOverview() {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+
+  const toDate = now.toISOString().slice(0, 10);
+  const fromDate = (() => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const overview = useFetch(
+    () => api.get<BusinessOverviewData>("/business/overview", { from: fromDate, to: toDate, month, year }),
+    [fromDate, toDate, month, year]
+  );
+
+  const d = overview.data;
+  const gmv = d?.gmv ?? [];
+  const vdBalance = d?.vd_balance ?? [];
+  const mdr = d?.mdr ?? [];
+  const wl = d?.brand_watchlist;
+
+  const gmvYtd = gmv.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("ytd")) ?? gmv[0];
+  const gmvMtd = gmv.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("mtd")) ?? gmv[1];
+  const gmvFtd = gmv.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("ftd")) ?? gmv[2];
+
+  const vdYtd = vdBalance.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("ytd")) ?? vdBalance[0];
+  const vdMtd = vdBalance.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("mtd")) ?? vdBalance[1];
+  const vdFtd = vdBalance.find((r: Row) => String(r.period ?? r.label ?? "").toLowerCase().includes("ftd")) ?? vdBalance[2];
+
   return (
     <div id="view-business">
       <div className="section-head">
         <div>
           <h2>Business Overview — MIS Snapshot</h2>
-          <div className="desc">Mirrors the Gift360 Master MIS report · figures as of 27 Aug 2026, 14:32 IST</div>
+          <div className="desc">
+            {d ? `Data from ${d.meta.from} to ${d.meta.to}` : "Loading business overview…"}
+          </div>
         </div>
         <div className="flex gap-8">
           <span className="badge neutral">Source: Gift360 Master MIS</span>
@@ -21,10 +100,8 @@ export function BusinessOverview() {
         </div>
       </div>
 
-      <div className="impact-box">
-        <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg>
-        <span>Not backend-supported yet — the admin API has no endpoint for GMV, MDR, profit or SuperCoin-contribution figures. Everything below is illustrative mock data, not live.</span>
-      </div>
+      {overview.loading && <div className="impact-box"><span>Loading business overview…</span></div>}
+      {overview.error && <div className="impact-box"><span>{overview.error}</span></div>}
 
       <div className="panel">
         <div className="panel-head">
@@ -41,11 +118,11 @@ export function BusinessOverview() {
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: "10px" }}>
                 <div>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Count</div>
-                  <div className="kpi-value" style={{ fontSize: "18px" }}>428,600</div>
+                  <div className="kpi-value" style={{ fontSize: "18px" }}>{Number(rowVal(gmvYtd, "order_count") ?? 0).toLocaleString("en-IN")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Value</div>
-                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>₹42.86 Cr</div>
+                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>{fmt(rowVal(gmvYtd, "order_value"), "₹")}</div>
                 </div>
               </div>
             </div>
@@ -53,29 +130,37 @@ export function BusinessOverview() {
               <span className="kpi-bar accent"></span>
               <div className="flex gap-6" style={{ alignItems: "center" }}>
                 <span className="kpi-label" style={{ margin: 0 }}>MTD</span>
-                <select className="select" style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }} title="Choose month for this MTD figure" defaultValue="Aug">
-                  <option>Jan</option>
-                  <option>Feb</option>
-                  <option>Mar</option>
-                  <option>Apr</option>
-                  <option>May</option>
-                  <option>Jun</option>
-                  <option>Jul</option>
-                  <option>Aug</option>
-                  <option>Sep</option>
-                  <option>Oct</option>
-                  <option>Nov</option>
-                  <option>Dec</option>
+                <select
+                  className="select"
+                  style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }}
+                  title="Choose month for this MTD figure"
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={i} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }}
+                  title="Choose year"
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                >
+                  <option value={2026}>2026</option>
+                  <option value={2025}>2025</option>
+                  <option value={2024}>2024</option>
                 </select>
               </div>
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: "10px" }}>
                 <div>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Count</div>
-                  <div className="kpi-value" style={{ fontSize: "18px" }}>38,240</div>
+                  <div className="kpi-value" style={{ fontSize: "18px" }}>{Number(rowVal(gmvMtd, "order_count") ?? 0).toLocaleString("en-IN")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Value</div>
-                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>₹3.82 Cr</div>
+                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>{fmt(rowVal(gmvMtd, "order_value"), "₹")}</div>
                 </div>
               </div>
             </div>
@@ -85,11 +170,11 @@ export function BusinessOverview() {
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: "10px" }}>
                 <div>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Count</div>
-                  <div className="kpi-value" style={{ fontSize: "18px" }}>4,812</div>
+                  <div className="kpi-value" style={{ fontSize: "18px" }}>{Number(rowVal(gmvFtd, "order_count") ?? 0).toLocaleString("en-IN")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Value</div>
-                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>₹31.85 L</div>
+                  <div className="kpi-value" style={{ fontSize: "18px", color: "var(--accent)" }}>{fmt(rowVal(gmvFtd, "order_value"), "₹")}</div>
                 </div>
               </div>
             </div>
@@ -117,10 +202,10 @@ export function BusinessOverview() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="num">38,240</td>
-                    <td className="num">36,910</td>
+                    <td className="num">{Number(rowVal(d?.transactions, "mtd_transaction_count") ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="num">{Number(rowVal(d?.transactions, "approved_count") ?? 0).toLocaleString("en-IN")}</td>
                     <td className="">
-                      <span className="badge critical">1,330</span>
+                      <span className="badge critical">{Number(rowVal(d?.transactions, "declined_count") ?? 0).toLocaleString("en-IN")}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -149,12 +234,12 @@ export function BusinessOverview() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="num">21,480</td>
-                    <td className="num">14,208</td>
-                    <td className="num">19,652</td>
+                    <td className="num">{Number(rowVal(d?.users, "unique_users") ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="num">{Number(rowVal(d?.users, "repeat_users") ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="num">{Number(rowVal(d?.users, "active_users") ?? 0).toLocaleString("en-IN")}</td>
                     <td className="">
                       <Link to="/customers" className="badge critical" style={{ cursor: "pointer" }}>
-                        63
+                        {Number(rowVal(d?.users, "abuse_users") ?? 0).toLocaleString("en-IN")}
                       </Link>
                     </td>
                   </tr>
@@ -177,46 +262,35 @@ export function BusinessOverview() {
             <div className="kpi-card">
               <span className="kpi-bar accent"></span>
               <div className="kpi-label">YTD</div>
-              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>₹8.4 Cr</div>
+              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>{fmt(rowVal(vdYtd, "voucher_value"), "₹")}</div>
             </div>
             <div className="kpi-card">
               <span className="kpi-bar accent"></span>
               <div className="flex gap-6" style={{ alignItems: "center" }}>
                 <span className="kpi-label" style={{ margin: 0 }}>MTD</span>
-                <select className="select" style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }} title="Choose month for this MTD figure" defaultValue="Aug">
-                  <option>Jan</option>
-                  <option>Feb</option>
-                  <option>Mar</option>
-                  <option>Apr</option>
-                  <option>May</option>
-                  <option>Jun</option>
-                  <option>Jul</option>
-                  <option>Aug</option>
-                  <option>Sep</option>
-                  <option>Oct</option>
-                  <option>Nov</option>
-                  <option>Dec</option>
+                <select
+                  className="select"
+                  style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }}
+                  title="Choose month for this MTD figure"
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={i} value={i + 1}>{m}</option>
+                  ))}
                 </select>
               </div>
-              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>₹72.6 L</div>
+              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>{fmt(rowVal(vdMtd, "voucher_value"), "₹")}</div>
             </div>
             <div className="kpi-card">
               <span className="kpi-bar accent"></span>
               <div className="kpi-label">FTD</div>
-              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>₹6.1 L</div>
+              <div className="kpi-value" style={{ fontSize: "20px", color: "var(--accent)" }}>{fmt(rowVal(vdFtd, "voucher_value"), "₹")}</div>
             </div>
           </div>
           <div style={{ marginTop: "10px" }} className="kv-row">
-            <span className="k">Run Rate</span>
-            <span className="v">₹2.4 Cr / month</span>
-          </div>
-          <div className="kv-row">
             <span className="k">Saving thru Gift360 — Value</span>
-            <span className="v">₹1.94 Cr</span>
-          </div>
-          <div className="kv-row">
-            <span className="k">Saving thru Gift360 — %</span>
-            <span className="v">4.55%</span>
+            <span className="v">{fmt(rowVal(vdYtd, "saving_value"), "₹")}</span>
           </div>
         </div>
       </div>
@@ -236,27 +310,21 @@ export function BusinessOverview() {
                   <th>Metric</th>
                   <th>Coins</th>
                   <th>Value</th>
-                  <th>% of Total Voucher Value</th>
-                  <th>Flipkart Contribution</th>
-                  <th>Gift360 Contribution</th>
+                  <th>Gift360 Contribution %</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td className="row-label">Flipkart SC Earned</td>
-                  <td className="num">2,41,000</td>
-                  <td className="num">₹24.1 L</td>
-                  <td className="num">4.6%</td>
-                  <td className="num">₹18.2 L</td>
-                  <td className="num">₹5.9 L</td>
+                  <td className="num">{Number(rowVal(d?.supercoins, "flipkart_sc_earned_coins") ?? 0).toLocaleString("en-IN")}</td>
+                  <td className="num">{fmt(rowVal(d?.supercoins, "flipkart_sc_earned_value"), "₹")}</td>
+                  <td className="num">{pct(rowVal(d?.supercoins, "gift360_contribution_pct"))}</td>
                 </tr>
                 <tr>
                   <td className="row-label">Flipkart SC Burned</td>
-                  <td className="num">1,94,000</td>
-                  <td className="num">₹19.4 L</td>
-                  <td className="num">3.8%</td>
-                  <td className="num">₹14.6 L</td>
-                  <td className="num">₹4.8 L</td>
+                  <td className="num">{Number(rowVal(d?.supercoins, "flipkart_sc_burned_coins") ?? 0).toLocaleString("en-IN")}</td>
+                  <td className="num">{fmt(rowVal(d?.supercoins, "flipkart_sc_burned_value"), "₹")}</td>
+                  <td className="num">—</td>
                 </tr>
               </tbody>
             </table>
@@ -284,15 +352,15 @@ export function BusinessOverview() {
                 <tbody>
                   <tr>
                     <td className="row-label">Value Discount</td>
-                    <td className="num">₹6.4 Cr</td>
+                    <td className="num">{fmt(rowVal(d?.gift360_earn, "value_discount"), "₹")}</td>
                   </tr>
                   <tr>
                     <td className="row-label">Platform Fee</td>
-                    <td className="num">₹1.12 Cr</td>
+                    <td className="num">{fmt(rowVal(d?.gift360_earn, "platform_fee"), "₹")}</td>
                   </tr>
                   <tr>
                     <td className="row-label">FK Rewards</td>
-                    <td className="num">₹42.8 L</td>
+                    <td className="num">{fmt(rowVal(d?.gift360_earn, "fk_rewards"), "₹")}</td>
                   </tr>
                 </tbody>
               </table>
@@ -320,8 +388,8 @@ export function BusinessOverview() {
                 <tbody>
                   <tr>
                     <td className="row-label">Gift360 Cash Back Points</td>
-                    <td className="num">₹18.4 L</td>
-                    <td className="num">4.3%</td>
+                    <td className="num">{fmt(rowVal(d?.gift360_burn, "cashback_points_value"), "₹")}</td>
+                    <td className="num">{pct(rowVal(d?.gift360_burn, "cashback_pct"))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -351,13 +419,13 @@ export function BusinessOverview() {
                 <tbody>
                   <tr>
                     <td className="row-label">Gift360 Cash Back Points</td>
-                    <td className="num">₹18.4 L</td>
-                    <td className="num">4.3%</td>
+                    <td className="num">{fmt(rowVal(d?.customer_earn, "gift360_cashback_value"), "₹")}</td>
+                    <td className="num">{pct(rowVal(d?.customer_earn, "gift360_cashback_pct"))}</td>
                   </tr>
                   <tr>
                     <td className="row-label">SC Earned</td>
-                    <td className="num">₹24.1 L</td>
-                    <td className="num">4.6%</td>
+                    <td className="num">{fmt(rowVal(d?.customer_earn, "sc_earned_value"), "₹")}</td>
+                    <td className="num">{pct(rowVal(d?.customer_earn, "sc_earned_pct"))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -385,8 +453,8 @@ export function BusinessOverview() {
                 <tbody>
                   <tr>
                     <td className="row-label">SC Burn</td>
-                    <td className="num">₹19.4 L</td>
-                    <td className="num">3.8%</td>
+                    <td className="num">{fmt(rowVal(d?.customer_burn, "sc_burn_value"), "₹")}</td>
+                    <td className="num">{pct(rowVal(d?.customer_burn, "sc_burn_pct"))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -408,16 +476,18 @@ export function BusinessOverview() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>UPI</th>
-                    <th>Debit Card</th>
-                    <th>Credit</th>
+                    {mdr.map((r: Row, i: number) => (
+                      <th key={i}>{String(r.payment_mode ?? r.mode ?? `Mode ${i + 1}`)}</th>
+                    ))}
+                    {mdr.length === 0 && (<><th>UPI</th><th>Debit Card</th><th>Credit</th></>)}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="num">0.30%</td>
-                    <td className="num">0.90%</td>
-                    <td className="num">1.80%</td>
+                    {mdr.map((r: Row, i: number) => (
+                      <td key={i} className="num">{pct(rowVal(r, "mdr_pct"))}</td>
+                    ))}
+                    {mdr.length === 0 && (<><td className="num">—</td><td className="num">—</td><td className="num">—</td></>)}
                   </tr>
                 </tbody>
               </table>
@@ -437,14 +507,16 @@ export function BusinessOverview() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Value</th>
+                    <th>Revenue</th>
+                    <th>Profit</th>
                     <th>%</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="num">₹1.86 Cr</td>
-                    <td className="num">4.35%</td>
+                    <td className="num">{fmt(rowVal(d?.profit, "revenue"), "₹")}</td>
+                    <td className="num">{fmt(rowVal(d?.profit, "profit_value"), "₹")}</td>
+                    <td className="num">{pct(rowVal(d?.profit, "profit_pct"))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -469,7 +541,10 @@ export function BusinessOverview() {
           <h4>High Margin Vouchers</h4>
           <p>Best contribution margin this month.</p>
           <div className="r-foot">
-            <span className="badge success">Tanishq · 18.2%</span>
+            {wl?.high_margin_brands?.slice(0, 3).map((b: Row, i: number) => (
+              <span key={i} className="badge success">{String(b.brand_name ?? "—")} · {pct(rowVal(b, "margin_pct"))}</span>
+            ))}
+            {(!wl?.high_margin_brands || wl.high_margin_brands.length === 0) && <span className="badge success">—</span>}
           </div>
         </div>
         <div className="report-card">
@@ -481,7 +556,10 @@ export function BusinessOverview() {
           <h4>Low Margin Vouchers</h4>
           <p>Thinnest margin — review commercial terms.</p>
           <div className="r-foot">
-            <span className="badge warning">Amazon Pay · 1.1%</span>
+            {wl?.low_margin_brands?.slice(0, 3).map((b: Row, i: number) => (
+              <span key={i} className="badge warning">{String(b.brand_name ?? "—")} · {pct(rowVal(b, "margin_pct"))}</span>
+            ))}
+            {(!wl?.low_margin_brands || wl.low_margin_brands.length === 0) && <span className="badge warning">—</span>}
           </div>
         </div>
         <div className="report-card">
@@ -493,7 +571,10 @@ export function BusinessOverview() {
           <h4>High Sale Brand</h4>
           <p>Most redeemed brand, last 30 days.</p>
           <div className="r-foot">
-            <span className="badge info">Flipkart · 12,400 units</span>
+            {wl?.high_sale_brands?.slice(0, 3).map((b: Row, i: number) => (
+              <span key={i} className="badge info">{String(b.brand_name ?? "—")} · {Number(rowVal(b, "units_sold") ?? 0).toLocaleString("en-IN")} units</span>
+            ))}
+            {(!wl?.high_sale_brands || wl.high_sale_brands.length === 0) && <span className="badge info">—</span>}
           </div>
         </div>
         <div className="report-card">
@@ -506,7 +587,10 @@ export function BusinessOverview() {
           <h4>Low Sale Brand</h4>
           <p>No redemptions in the last 30 days.</p>
           <div className="r-foot">
-            <span className="badge critical">Nykaa Fashion · 0 units</span>
+            {wl?.low_sale_brands?.slice(0, 3).map((b: Row, i: number) => (
+              <span key={i} className="badge critical">{String(b.brand_name ?? "—")} · {Number(rowVal(b, "units_sold") ?? 0).toLocaleString("en-IN")} units</span>
+            ))}
+            {(!wl?.low_sale_brands || wl.low_sale_brands.length === 0) && <span className="badge critical">—</span>}
           </div>
         </div>
       </div>
