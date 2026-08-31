@@ -537,7 +537,7 @@ textarea.input{ resize:vertical; min-height:64px; font-family:inherit; }
 .report-card .r-icon svg{ width:16px; height:16px; }
 .report-card h4{ font-size:13px; color:var(--text); }
 .report-card p{ font-size:11.5px; color:var(--text-faint); }
-.report-card .r-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:4px; }
+.report-card .r-foot{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:auto; padding-top:4px; }
 
 /* Utility layout */
 .flex{ display:flex; align-items:center; }
