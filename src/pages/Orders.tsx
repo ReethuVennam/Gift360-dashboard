@@ -15,7 +15,7 @@ interface OrderRow {
   total_amount: number;
   order_status: string;
   created_at: string;
-  wallet_used: number;
+  wallet_used: boolean;
   wallet_amount: number;
   payment_method: string;
   coins_earned: number;
@@ -33,7 +33,7 @@ interface OrderDetailHeader {
   client_name: string;
   client_email: string;
   client_mobile: string;
-  wallet_used: number;
+  wallet_used: boolean;
   wallet_amount: number;
   payment_method: string;
 }
@@ -175,8 +175,8 @@ export function Orders() {
                   <td>{row.client_name}</td>
                   <td>{row.brand_name}</td>
                   <td><span className="badge info">{row.payment_method}</span></td>
-                  <td className="num">₹{row.wallet_used}</td>
-                  <td className="num">{row.coins_earned}</td>
+                  <td className="num">₹{row.wallet_amount}</td>
+                  <td className="num">{row.coins_earned ?? "—"}</td>
                   <td className="num">₹{row.total_amount}</td>
                   <td><span className={"badge " + statusBadgeClass(row.voucher_status)}>{row.voucher_status}</span></td>
                   <td><span className={"badge " + statusBadgeClass(row.order_status)}>{row.order_status}</span></td>
@@ -231,8 +231,7 @@ export function Orders() {
               <div className="drawer-section">
                 <h4>Payment breakdown</h4>
                 <div className="kv-list">
-                  <div className="kv-row"><span className="k">Wallet used</span><span className="v">₹{header.wallet_used}</span></div>
-                  <div className="kv-row"><span className="k">Wallet credited</span><span className="v">₹{header.wallet_amount}</span></div>
+                  <div className="kv-row"><span className="k">Wallet used</span><span className="v">₹{header.wallet_amount}</span></div>
                 </div>
               </div>
               <div className="drawer-section">
