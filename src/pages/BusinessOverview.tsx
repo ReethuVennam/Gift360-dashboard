@@ -114,7 +114,20 @@ export function BusinessOverview() {
           <div className="grid-3">
             <div className="kpi-card">
               <span className="kpi-bar accent"></span>
-              <div className="kpi-label">YTD</div>
+              <div className="flex gap-6" style={{ alignItems: "center" }}>
+                <span className="kpi-label" style={{ margin: 0 }}>YTD</span>
+                <select
+                  className="select"
+                  style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }}
+                  title="Choose year for this YTD figure"
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                >
+                  <option value={2026}>2026</option>
+                  <option value={2025}>2025</option>
+                  <option value={2024}>2024</option>
+                </select>
+              </div>
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: "10px" }}>
                 <div>
                   <div className="dim" style={{ fontSize: "9.5px", textTransform: "uppercase", letterSpacing: ".05em" }}>Count</div>
@@ -140,17 +153,6 @@ export function BusinessOverview() {
                   {MONTHS.map((m, i) => (
                     <option key={i} value={i + 1}>{m}</option>
                   ))}
-                </select>
-                <select
-                  className="select"
-                  style={{ padding: "1px 5px", fontSize: "10.5px", borderRadius: "5px" }}
-                  title="Choose year"
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                >
-                  <option value={2026}>2026</option>
-                  <option value={2025}>2025</option>
-                  <option value={2024}>2024</option>
                 </select>
               </div>
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: "10px" }}>
