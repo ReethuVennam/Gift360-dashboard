@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { RequireButton } from "../shared/RequireButton";
-import { Modal, CloseIcon } from "../shared/Modal";
-import { useToast } from "../shared/ToastContext";
+import { RegenerateVoucherButton } from "../shared/RegenerateVoucherButton";
 import { CountUp } from "../shared/CountUp";
-import { api, ApiError } from "../lib/api";
+import { api } from "../lib/api";
 import { useFetch } from "../lib/useApi";
 
 interface FailedVoucher {
@@ -48,7 +46,6 @@ function orderStatusBadgeClass(status: string): string {
 }
 
 export function Vouchers() {
-  const toast = useToast();
   const [activeTab, setActiveTab] = useState<"generation" | "config">("generation");
   const [listMode, setListMode] = useState<ListMode>("failed");
   const [search, setSearch] = useState("");
@@ -57,32 +54,10 @@ export function Vouchers() {
   const retryEligible = useFetch(() => api.get<{ data: RetryEligible[] }>("/vouchers/retry-eligible"), []);
   const metrics = useFetch(() => api.get<{ data: RetryMetrics }>("/vouchers/retry-metrics"), []);
 
-  const [retryOpen, setRetryOpen] = useState(false);
-  const [retryTarget, setRetryTarget] = useState<{ orderNumber: string; orderItemId: string } | null>(null);
-  const [retryReason, setRetryReason] = useState("");
-  const [retrying, setRetrying] = useState(false);
-
-  function openRetry(orderNumber: string, orderItemId: string) {
-    setRetryTarget({ orderNumber, orderItemId });
-    setRetryReason("");
-    setRetryOpen(true);
-  }
-
-  async function confirmRetry() {
-    if (!retryTarget) return;
-    setRetrying(true);
-    try {
-      await api.post("/vouchers/retry", { orderNumber: retryTarget.orderNumber, orderItemId: retryTarget.orderItemId, reason: retryReason });
-      setRetryOpen(false);
-      toast("Retry queued for " + retryTarget.orderNumber + ". (Status reset — actual re-generation runs on the original backend.)");
-      failed.refetch();
-      retryEligible.refetch();
-      metrics.refetch();
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Retry failed", "err");
-    } finally {
-      setRetrying(false);
-    }
+  function refetchAll() {
+    failed.refetch();
+    retryEligible.refetch();
+    metrics.refetch();
   }
 
   const failedRows = (failed.data?.data ?? []).filter(
@@ -150,9 +125,11 @@ export function Vouchers() {
                           <td className="num muted">{r.paid_at ? new Date(r.paid_at).toLocaleString() : "—"}</td>
                           <td><span className={"badge " + orderStatusBadgeClass(r.order_status)}>{r.order_status}</span></td>
                           <td>
-                            <RequireButton requires="vouchers:retry" className="btn btn-sm" onClick={() => openRetry(r.order_number, r.order_item_id)}>
-                              <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 8v4l3 2" /></svg> Retry
-                            </RequireButton>
+                            <RegenerateVoucherButton
+                              orderNumber={r.order_number}
+                              orderItemId={r.order_item_id}
+                              onRegenerated={refetchAll}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -175,9 +152,11 @@ export function Vouchers() {
                           <td className="num">₹{r.line_total}</td>
                           <td className="num muted">{new Date(r.order_paid_at).toLocaleString()}</td>
                           <td>
-                            <RequireButton requires="vouchers:retry" className="btn btn-sm" onClick={() => openRetry(r.original_order_number, r.order_item_id)}>
-                              <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 8v4l3 2" /></svg> Retry
-                            </RequireButton>
+                            <RegenerateVoucherButton
+                              orderNumber={r.original_order_number}
+                              orderItemId={r.order_item_id}
+                              onRegenerated={refetchAll}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -201,32 +180,6 @@ export function Vouchers() {
           </div>
         </div>
       )}
-
-      <Modal open={retryOpen} onClose={() => setRetryOpen(false)}>
-        <div className="modal-head">
-          <h3>Retry voucher generation</h3>
-          <CloseIcon onClick={() => setRetryOpen(false)} />
-        </div>
-        <div className="modal-body">
-          <div className="kv-list">
-            <div className="kv-row"><span className="k">Order</span><span className="v">{retryTarget?.orderNumber}</span></div>
-          </div>
-          <div className="impact-box">
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg>
-            <span>This currently resets the item's status for reprocessing — it does not itself call the voucher provider.</span>
-          </div>
-          <div className="field">
-            <label>Reason</label>
-            <textarea className="input" value={retryReason} onChange={(e) => setRetryReason(e.target.value)} placeholder="e.g. Customer reported not receiving voucher"></textarea>
-          </div>
-        </div>
-        <div className="modal-foot">
-          <button className="btn" onClick={() => setRetryOpen(false)}>Cancel</button>
-          <button className="btn btn-primary" disabled={retrying} onClick={confirmRetry}>
-            <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 8v4l3 2" /></svg> {retrying ? "Retrying…" : "Confirm retry"}
-          </button>
-        </div>
-      </Modal>
     </>
   );
 }

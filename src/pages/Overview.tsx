@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CountUp } from "../shared/CountUp";
+import { CustomerLookupPanel } from "../shared/CustomerLookupPanel";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/useApi";
 
@@ -61,6 +62,8 @@ export function Overview() {
 
   return (
     <>
+      <CustomerLookupPanel />
+
       <div className="section-head">
         <div>
           <h2>Today at a glance</h2>
