@@ -85,11 +85,16 @@ export function Customers() {
 
   async function confirmBlockToggle() {
     if (!blockTarget) return;
-    const nextStatus = blockTarget.client_account_status === "active" ? "suspended" : "active";
+    const reactivating = blockTarget.client_account_status !== "active";
     setSubmitting(true);
     try {
-      await api.post(`/customers/${blockTarget.client_id}/block`, { status: nextStatus, reason });
-      toast(`Customer ${blockTarget.client_name} is now ${nextStatus}. Recorded to audit log.`);
+      if (reactivating) {
+        await api.post(`/customers/${blockTarget.client_id}/reactivation-requests`, { reason });
+        toast(`Reactivation request submitted for ${blockTarget.client_name} — awaiting approval.`);
+      } else {
+        await api.post(`/customers/${blockTarget.client_id}/block`, { status: "suspended", reason });
+        toast(`Customer ${blockTarget.client_name} is now suspended. Recorded to audit log.`);
+      }
       setBlockOpen(false);
       list.refetch();
     } catch (err) {
@@ -150,7 +155,7 @@ export function Customers() {
                     {row.client_account_status === "active" ? (
                       <RequireButton requires="customers:block" className="btn btn-sm btn-danger" onClick={() => openBlockModal(row)}>Suspend</RequireButton>
                     ) : (
-                      <RequireButton requires="customers:block" className="btn btn-sm" onClick={() => openBlockModal(row)}>Reactivate</RequireButton>
+                      <RequireButton requires="customers:reactivate:request" className="btn btn-sm" onClick={() => openBlockModal(row)}>Reactivate</RequireButton>
                     )}
                   </td>
                 </tr>

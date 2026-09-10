@@ -11,7 +11,7 @@ interface RegenerateVoucherButtonProps {
   onRegenerated?: () => void;
 }
 
-const REQUIRES = "vouchers:retry";
+const REQUIRES = "vouchers:retry:request";
 
 export function RegenerateVoucherButton({ orderNumber, orderItemId, resolveOrderItemId, onRegenerated }: RegenerateVoucherButtonProps) {
   const toast = useToast();
@@ -25,22 +25,22 @@ export function RegenerateVoucherButton({ orderNumber, orderItemId, resolveOrder
     try {
       const itemId = orderItemId ?? (await resolveOrderItemId?.());
       if (!itemId) throw new Error("Could not resolve the order item to regenerate.");
-      await api.post("/vouchers/retry", {
+      await api.post("/vouchers/retry-requests", {
         orderNumber,
         orderItemId: itemId,
         reason: "Regenerate requested from admin dashboard",
       });
       setState("pending");
-      toast("Voucher regeneration requested for " + orderNumber + ".");
+      toast("Regeneration request submitted for " + orderNumber + " — awaiting approval.");
       onRegenerated?.();
     } catch (err) {
       setState("idle");
-      toast(err instanceof ApiError ? err.message : "Regenerate failed", "err");
+      toast(err instanceof ApiError ? err.message : "Request failed", "err");
     }
   }
 
   if (state === "pending") {
-    return <button className="btn btn-sm btn-warning" disabled>Request Pending</button>;
+    return <button className="btn btn-sm btn-warning" disabled>Awaiting Approval</button>;
   }
 
   return (
@@ -50,7 +50,7 @@ export function RegenerateVoucherButton({ orderNumber, orderItemId, resolveOrder
       title={!allowed ? requiresTitle(REQUIRES) : undefined}
       onClick={handleClick}
     >
-      {state === "submitting" ? "Requesting…" : "Regenerate Voucher"}
+      {state === "submitting" ? "Submitting…" : "Regenerate Voucher"}
     </button>
   );
 }

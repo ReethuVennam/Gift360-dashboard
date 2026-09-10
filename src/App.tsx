@@ -2,12 +2,14 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout } from "./shared/Layout";
 import { useAuth } from "./shared/AuthContext";
 import { Login } from "./pages/Login";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Overview } from "./pages/Overview";
 import { BusinessOverview } from "./pages/BusinessOverview";
 import { Orders } from "./pages/Orders";
 import { Reports } from "./pages/Reports";
 import { Customers } from "./pages/Customers";
 import { Vouchers } from "./pages/Vouchers";
+import { Approvals } from "./pages/Approvals";
 import { Wallet } from "./pages/Wallet";
 import { Refunds } from "./pages/Refunds";
 import { Exceptions } from "./pages/Exceptions";
@@ -26,6 +28,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route
         element={
           <RequireAuth>
@@ -39,6 +42,7 @@ function App() {
         <Route path="reports" element={<Reports />} />
         <Route path="customers" element={<Customers />} />
         <Route path="vouchers" element={<Vouchers />} />
+        <Route path="approvals" element={<Approvals />} />
         <Route path="wallet" element={<Wallet />} />
         <Route path="refunds" element={<Refunds />} />
         <Route path="exceptions" element={<Exceptions />} />

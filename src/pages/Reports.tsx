@@ -42,8 +42,8 @@ async function runReport(key: ReportKey, customerId: string): Promise<{ columns:
     return { columns: ['order_number', 'client_name', 'total_amount', 'payment_method', 'created_at'], rows: res.data };
   }
   if (key === 'voucher-failures') {
-    const res = await api.get<{ data: ReportRow[] }>('/vouchers/failed', { size: 50 });
-    return { columns: ['order_number', 'client_name', 'brand_name', 'last_evc_response_msg', 'paid_at'], rows: res.data };
+    const res = await api.get<{ data: ReportRow[] }>('/vouchers/failed');
+    return { columns: ['orderNumber', 'quantity', 'lineTotal', 'status', 'paidAt'], rows: res.data };
   }
   if (key === 'customer-history') {
     if (!customerId) return { columns: [], rows: [] };

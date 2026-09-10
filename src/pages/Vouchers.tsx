@@ -5,42 +5,45 @@ import { api } from "../lib/api";
 import { useFetch } from "../lib/useApi";
 
 interface FailedVoucher {
-  order_number: string;
-  order_item_id: string;
-  client_id: string;
-  client_name: string;
-  client_email: string;
-  brand_code: string;
-  brand_name: string;
+  orderNumber: string;
+  orderItemId: string;
+  paidAt: string | null;
   quantity: number;
-  last_evc_response_msg: string | null;
-  last_evc_attempt_at: string | null;
-  paid_at: string | null;
-  order_status: string;
+  unitValue: number;
+  lineTotal: number;
+  currency: string;
+  amount: number;
+  status: string;
+  canRetry: boolean;
 }
 
 interface RetryEligible {
-  original_order_number: string;
-  order_item_id: string;
-  brand_id: string;
+  originalOrderNumber: string;
+  orderItemId: string;
+  skuCode: string;
   quantity: number;
-  customer_name: string;
-  customer_email: string;
-  customer_mobile: string;
-  line_total: number;
-  order_paid_at: string;
+  amount: number;
+  distributorId: string;
+  orderPaidAt: string;
+  attemptCount: number;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerMobile: string | null;
 }
 
 interface RetryMetrics {
-  eligible_order_count: number;
-  eligible_item_count: number;
+  eligibleOrderCount: number;
+  eligibleItemCount: number;
+  totalRetriesToday: number;
+  maxAttempts: number;
+  retryWindowHours: number;
 }
 
 type ListMode = "failed" | "retry-eligible";
 
-function orderStatusBadgeClass(status: string): string {
+function statusBadgeClass(status: string): string {
   const s = status?.toUpperCase();
-  if (s === "PAID") return "success";
+  if (s === "SUCCESS" || s === "GENERATED") return "success";
   if (s === "PENDING") return "warning";
   return "critical";
 }
@@ -50,9 +53,9 @@ export function Vouchers() {
   const [listMode, setListMode] = useState<ListMode>("failed");
   const [search, setSearch] = useState("");
 
-  const failed = useFetch(() => api.get<{ data: FailedVoucher[] }>("/vouchers/failed", { page: 0, size: 50 }), []);
+  const failed = useFetch(() => api.get<{ data: FailedVoucher[] }>("/vouchers/failed"), []);
   const retryEligible = useFetch(() => api.get<{ data: RetryEligible[] }>("/vouchers/retry-eligible"), []);
-  const metrics = useFetch(() => api.get<{ data: RetryMetrics }>("/vouchers/retry-metrics"), []);
+  const metrics = useFetch(() => api.get<RetryMetrics>("/vouchers/retry-metrics"), []);
 
   function refetchAll() {
     failed.refetch();
@@ -61,10 +64,13 @@ export function Vouchers() {
   }
 
   const failedRows = (failed.data?.data ?? []).filter(
-    (r) => !search || r.order_number.toLowerCase().includes(search.toLowerCase()) || r.client_name.toLowerCase().includes(search.toLowerCase())
+    (r) => !search || r.orderNumber.toLowerCase().includes(search.toLowerCase())
   );
   const eligibleRows = (retryEligible.data?.data ?? []).filter(
-    (r) => !search || r.original_order_number.toLowerCase().includes(search.toLowerCase()) || r.customer_name.toLowerCase().includes(search.toLowerCase())
+    (r) =>
+      !search ||
+      r.originalOrderNumber.toLowerCase().includes(search.toLowerCase()) ||
+      (r.customerName ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -80,10 +86,11 @@ export function Vouchers() {
 
       {activeTab === "generation" && (
         <div style={{ marginTop: "18px" }}>
-          <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+          <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
             <div className="kpi-card crit"><span className="kpi-bar critical"></span><div className="kpi-label">Failed (this page)</div><CountUp target={failed.data?.data.length ?? 0} className="kpi-value" /></div>
-            <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Retry-eligible orders</div><CountUp target={metrics.data?.data.eligible_order_count ?? 0} className="kpi-value" /></div>
-            <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Retry-eligible items</div><CountUp target={metrics.data?.data.eligible_item_count ?? 0} className="kpi-value" /></div>
+            <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Retry-eligible orders</div><CountUp target={metrics.data?.eligibleOrderCount ?? 0} className="kpi-value" /></div>
+            <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Retry-eligible items</div><CountUp target={metrics.data?.eligibleItemCount ?? 0} className="kpi-value" /></div>
+            <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Retries today</div><CountUp target={metrics.data?.totalRetriesToday ?? 0} className="kpi-value" /></div>
           </div>
 
           <div className="panel">
@@ -107,27 +114,23 @@ export function Vouchers() {
               <table className="data-table">
                 {listMode === "failed" ? (
                   <>
-                    <thead><tr><th>Order</th><th>Customer</th><th>Email</th><th>Brand</th><th>Qty</th><th>Failure reason</th><th>Last attempt</th><th>Paid at</th><th>Order status</th><th></th></tr></thead>
+                    <thead><tr><th>Order</th><th>Qty</th><th>Unit value</th><th>Line total</th><th>Status</th><th>Paid at</th><th>Can retry</th><th></th></tr></thead>
                     <tbody>
-                      {failed.loading && <tr><td colSpan={10} className="dim">Loading…</td></tr>}
-                      {!failed.loading && failedRows.length === 0 && <tr><td colSpan={10} className="dim">No failed vouchers.</td></tr>}
+                      {failed.loading && <tr><td colSpan={8} className="dim">Loading…</td></tr>}
+                      {!failed.loading && failedRows.length === 0 && <tr><td colSpan={8} className="dim">No failed vouchers.</td></tr>}
                       {failedRows.map((r) => (
-                        <tr key={r.order_item_id}>
-                          <td className="id-cell">{r.order_number}</td>
-                          <td>
-                            <b>{r.client_name}</b><br /><span className="muted mono" style={{ fontSize: "11px" }}>{r.client_id}</span>
-                          </td>
-                          <td className="mono">{r.client_email}</td>
-                          <td>{r.brand_name}<br /><span className="muted mono" style={{ fontSize: "11px" }}>{r.brand_code}</span></td>
+                        <tr key={r.orderItemId}>
+                          <td className="id-cell">{r.orderNumber}</td>
                           <td className="num">{r.quantity}</td>
-                          <td className="muted">{r.last_evc_response_msg ?? "—"}</td>
-                          <td className="num muted">{r.last_evc_attempt_at ? new Date(r.last_evc_attempt_at).toLocaleString() : "—"}</td>
-                          <td className="num muted">{r.paid_at ? new Date(r.paid_at).toLocaleString() : "—"}</td>
-                          <td><span className={"badge " + orderStatusBadgeClass(r.order_status)}>{r.order_status}</span></td>
+                          <td className="num">{r.currency} {r.unitValue}</td>
+                          <td className="num">{r.currency} {r.lineTotal}</td>
+                          <td><span className={"badge " + statusBadgeClass(r.status)}>{r.status}</span></td>
+                          <td className="num muted">{r.paidAt ? new Date(r.paidAt).toLocaleString() : "—"}</td>
+                          <td>{r.canRetry ? <span className="badge success">Yes</span> : <span className="badge critical">No</span>}</td>
                           <td>
                             <RegenerateVoucherButton
-                              orderNumber={r.order_number}
-                              orderItemId={r.order_item_id}
+                              orderNumber={r.orderNumber}
+                              orderItemId={r.orderItemId}
                               onRegenerated={refetchAll}
                             />
                           </td>
@@ -137,24 +140,25 @@ export function Vouchers() {
                   </>
                 ) : (
                   <>
-                    <thead><tr><th>Order</th><th>Customer</th><th>Email</th><th>Mobile</th><th>Brand</th><th>Qty</th><th>Line total</th><th>Paid at</th><th></th></tr></thead>
+                    <thead><tr><th>Order</th><th>Customer</th><th>Email</th><th>Mobile</th><th>SKU</th><th>Qty</th><th>Amount</th><th>Paid at</th><th>Attempts</th><th></th></tr></thead>
                     <tbody>
-                      {retryEligible.loading && <tr><td colSpan={9} className="dim">Loading…</td></tr>}
-                      {!retryEligible.loading && eligibleRows.length === 0 && <tr><td colSpan={9} className="dim">No retry-eligible items.</td></tr>}
+                      {retryEligible.loading && <tr><td colSpan={10} className="dim">Loading…</td></tr>}
+                      {!retryEligible.loading && eligibleRows.length === 0 && <tr><td colSpan={10} className="dim">No retry-eligible items.</td></tr>}
                       {eligibleRows.map((r) => (
-                        <tr key={r.order_item_id}>
-                          <td className="id-cell">{r.original_order_number}</td>
-                          <td>{r.customer_name}</td>
-                          <td className="mono">{r.customer_email}</td>
-                          <td className="mono">{r.customer_mobile}</td>
-                          <td>{r.brand_id}</td>
+                        <tr key={r.orderItemId}>
+                          <td className="id-cell">{r.originalOrderNumber}</td>
+                          <td>{r.customerName ?? "—"}</td>
+                          <td className="mono">{r.customerEmail ?? "—"}</td>
+                          <td className="mono">{r.customerMobile ?? "—"}</td>
+                          <td className="mono muted" style={{ fontSize: "11px" }}>{r.skuCode}</td>
                           <td className="num">{r.quantity}</td>
-                          <td className="num">₹{r.line_total}</td>
-                          <td className="num muted">{new Date(r.order_paid_at).toLocaleString()}</td>
+                          <td className="num">₹{r.amount}</td>
+                          <td className="num muted">{new Date(r.orderPaidAt).toLocaleString()}</td>
+                          <td className="num">{r.attemptCount}</td>
                           <td>
                             <RegenerateVoucherButton
-                              orderNumber={r.original_order_number}
-                              orderItemId={r.order_item_id}
+                              orderNumber={r.originalOrderNumber}
+                              orderItemId={r.orderItemId}
                               onRegenerated={refetchAll}
                             />
                           </td>

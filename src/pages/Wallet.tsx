@@ -64,6 +64,32 @@ export function Wallet() {
   const balance = walletDetail.data?.data[0];
   const txns = walletDetail.data?.data[1] ?? [];
 
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustDirection, setAdjustDirection] = useState<"credit" | "debit">("credit");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false);
+
+  async function submitAdjustment() {
+    if (!lookupId || !adjustAmount.trim() || !adjustReason.trim()) return;
+    setAdjustSubmitting(true);
+    try {
+      await api.post(`/wallet/${lookupId}/adjustment-requests`, {
+        amount: Number(adjustAmount),
+        direction: adjustDirection,
+        reason: adjustReason,
+      });
+      toast(`Wallet adjustment request submitted — awaiting approval.`);
+      setAdjustOpen(false);
+      setAdjustAmount("");
+      setAdjustReason("");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Request failed", "err");
+    } finally {
+      setAdjustSubmitting(false);
+    }
+  }
+
   return (
     <>
       <div className="panel">
@@ -117,11 +143,18 @@ export function Wallet() {
           {walletDetail.error && <div className="impact-box"><span>{walletDetail.error}</span></div>}
 
           {balance && (
-            <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)", marginTop: "12px" }}>
-              <div className="kpi-card"><span className="kpi-bar accent"></span><div className="kpi-label">Total balance</div><div className="kpi-value">₹{balance.total_balance}</div></div>
-              <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Voucher cashback balance</div><div className="kpi-value">₹{balance.voucher_cashback_balance}</div></div>
-              <div className="kpi-card"><span className="kpi-bar warning"></span><div className="kpi-label">Pending earn fraction</div><div className="kpi-value">{balance.pending_earn_fraction}</div></div>
-            </div>
+            <>
+              <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)", marginTop: "12px" }}>
+                <div className="kpi-card"><span className="kpi-bar accent"></span><div className="kpi-label">Total balance</div><div className="kpi-value">₹{balance.total_balance}</div></div>
+                <div className="kpi-card"><span className="kpi-bar info"></span><div className="kpi-label">Voucher cashback balance</div><div className="kpi-value">₹{balance.voucher_cashback_balance}</div></div>
+                <div className="kpi-card"><span className="kpi-bar warning"></span><div className="kpi-label">Pending earn fraction</div><div className="kpi-value">{balance.pending_earn_fraction}</div></div>
+              </div>
+              <div className="flex gap-8" style={{ marginTop: "12px" }}>
+                <RequireButton requires="wallet:adjust:request" className="btn btn-sm btn-primary" onClick={() => setAdjustOpen(true)}>
+                  Adjust balance
+                </RequireButton>
+              </div>
+            </>
           )}
 
           {txns.length > 0 && (
@@ -162,6 +195,44 @@ export function Wallet() {
         <div className="modal-foot">
           <button className="btn" onClick={() => setEditKey(null)}>Cancel</button>
           <button className="btn btn-primary" disabled={!editReason.trim() || saving} onClick={confirmEdit}>{saving ? "Saving…" : "Confirm"}</button>
+        </div>
+      </Modal>
+
+      <Modal open={adjustOpen} onClose={() => setAdjustOpen(false)}>
+        <div className="modal-head">
+          <h3>Adjust wallet balance</h3>
+          <button className="icon-btn" onClick={() => setAdjustOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        </div>
+        <div className="modal-body">
+          <div className="impact-box"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg><span>This submits a request — a second approver has to review and approve it before the balance actually changes.</span></div>
+          <div className="kv-list">
+            <div className="kv-row"><span className="k">Customer ID</span><span className="v mono">{lookupId}</span></div>
+          </div>
+          <div className="field">
+            <label>Direction</label>
+            <select className="select" value={adjustDirection} onChange={(e) => setAdjustDirection(e.target.value as "credit" | "debit")}>
+              <option value="credit">Credit (add funds)</option>
+              <option value="debit">Debit (remove funds)</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Amount (₹)</label>
+            <input className="input" type="number" min="0" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Reason <span className="dim">(required)</span></label>
+            <textarea className="input" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)}></textarea>
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={() => setAdjustOpen(false)}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            disabled={!adjustAmount.trim() || Number(adjustAmount) <= 0 || !adjustReason.trim() || adjustSubmitting}
+            onClick={submitAdjustment}
+          >
+            {adjustSubmitting ? "Submitting…" : "Submit request"}
+          </button>
         </div>
       </Modal>
     </>

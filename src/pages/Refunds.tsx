@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { RequireButton } from '../shared/RequireButton';
+import { Modal } from '../shared/Modal';
+import { useToast } from '../shared/ToastContext';
 import { api, ApiError } from '../lib/api';
 
 interface RefundCheck {
@@ -20,6 +23,7 @@ function eligibilityClass(e: string): string {
 }
 
 export function Refunds() {
+  const toast = useToast();
   const [orderInput, setOrderInput] = useState('');
   const [result, setResult] = useState<RefundCheck | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,6 +41,37 @@ export function Refunds() {
       setError(err instanceof ApiError ? err.message : 'Check failed');
     } finally {
       setLoading(false);
+    }
+  }
+
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestAmount, setRequestAmount] = useState('');
+  const [requestMode, setRequestMode] = useState('wallet');
+  const [requestReason, setRequestReason] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+
+  function openRequestModal() {
+    setRequestAmount(result ? String(result.amount_final) : '');
+    setRequestMode('wallet');
+    setRequestReason('');
+    setRequestOpen(true);
+  }
+
+  async function submitRefundRequest() {
+    if (!result || !requestAmount.trim() || !requestReason.trim()) return;
+    setRequestSubmitting(true);
+    try {
+      await api.post(`/refunds/${result.order_number}/requests`, {
+        amount: Number(requestAmount),
+        refund_mode: requestMode,
+        reason: requestReason,
+      });
+      toast('Refund request submitted — awaiting approval.');
+      setRequestOpen(false);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Request failed', 'err');
+    } finally {
+      setRequestSubmitting(false);
     }
   }
 
@@ -81,6 +116,13 @@ export function Refunds() {
               <div className="kv-row"><span className="k">Refund eligibility</span><span className="v"><span className={"badge " + eligibilityClass(result.refund_eligibility)}>{result.refund_eligibility}</span></span></div>
             </div>
           )}
+          {result && result.refund_eligibility === 'ELIGIBLE' && (
+            <div className="flex gap-8" style={{ marginTop: '12px' }}>
+              <RequireButton requires="refunds:request" className="btn btn-sm btn-primary" onClick={openRequestModal}>
+                Request refund
+              </RequireButton>
+            </div>
+          )}
         </div>
       </div>
 
@@ -97,6 +139,44 @@ export function Refunds() {
           </div>
         </div>
       </div>
+
+      <Modal open={requestOpen} onClose={() => setRequestOpen(false)}>
+        <div className="modal-head">
+          <h3>Request refund</h3>
+          <button className="icon-btn" onClick={() => setRequestOpen(false)}><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        </div>
+        <div className="modal-body">
+          <div className="impact-box"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17h.01" /></svg><span>This submits a request for a second approver to review. Approving only records the decision — there is no payment gateway integration yet, so the actual refund still needs to be executed manually.</span></div>
+          <div className="kv-list">
+            <div className="kv-row"><span className="k">Order</span><span className="v mono">{result?.order_number}</span></div>
+          </div>
+          <div className="field">
+            <label>Refund mode</label>
+            <select className="select" value={requestMode} onChange={(e) => setRequestMode(e.target.value)}>
+              <option value="wallet">Wallet credit</option>
+              <option value="source">Original payment source</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Amount (₹)</label>
+            <input className="input" type="number" min="0" value={requestAmount} onChange={(e) => setRequestAmount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Reason <span className="dim">(required)</span></label>
+            <textarea className="input" value={requestReason} onChange={(e) => setRequestReason(e.target.value)}></textarea>
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={() => setRequestOpen(false)}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            disabled={!requestAmount.trim() || Number(requestAmount) <= 0 || !requestReason.trim() || requestSubmitting}
+            onClick={submitRefundRequest}
+          >
+            {requestSubmitting ? 'Submitting…' : 'Submit request'}
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }

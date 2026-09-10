@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../shared/AuthContext";
 
 export function Login() {
@@ -11,7 +11,9 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const state = location.state as { from?: string; resetSuccess?: boolean } | null;
+  const from = state?.from ?? "/";
+  const resetSuccess = state?.resetSuccess ?? false;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -57,7 +59,15 @@ export function Login() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <div className="hint" style={{ textAlign: "right", marginTop: "6px" }}>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
         </div>
+        {resetSuccess && !error && (
+          <div className="impact-box success" style={{ marginBottom: "12px" }}>
+            <span>Password reset successful. Please sign in with your new password.</span>
+          </div>
+        )}
         {error && (
           <div className="impact-box" style={{ marginBottom: "12px" }}>
             <span>{error}</span>

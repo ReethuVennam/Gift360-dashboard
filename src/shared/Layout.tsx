@@ -50,7 +50,7 @@ const NAV_ITEMS: { to: string; label: string; icon: ReactElement; count?: string
   },
 ];
 
-const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: string; hot?: boolean }[] = [
+const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: string; hot?: boolean; end?: boolean }[] = [
   {
     to: "/customers",
     label: "Customers",
@@ -65,10 +65,21 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
   {
     to: "/vouchers",
     label: "Vouchers",
+    end: true,
     icon: (
       <>
         <path d="M3 8a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" />
         <path d="M9 3v18" strokeDasharray="2 2" />
+      </>
+    ),
+  },
+  {
+    to: "/approvals",
+    label: "Approvals",
+    icon: (
+      <>
+        <path d="M9 12l2 2 4-4" />
+        <circle cx="12" cy="12" r="9" />
       </>
     ),
   },
@@ -119,9 +130,9 @@ const NAV_ITEMS_COMPLIANCE: { to: string; label: string; icon: ReactElement }[] 
   },
 ];
 
-function NavRow({ item }: { item: { to: string; label: string; icon: ReactElement; count?: string; hot?: boolean } }) {
+function NavRow({ item }: { item: { to: string; label: string; icon: ReactElement; count?: string; hot?: boolean; end?: boolean } }) {
   return (
-    <NavLink to={item.to} end={item.to === "/"} className={({ isActive }) => "nav-item" + (isActive ? " active" : "")}>
+    <NavLink to={item.to} end={item.to === "/" || item.end} className={({ isActive }) => "nav-item" + (isActive ? " active" : "")}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
         {item.icon}
       </svg>
