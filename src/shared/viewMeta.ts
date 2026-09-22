@@ -6,8 +6,5 @@ export const VIEW_META: Record<string, { title: string; crumb: string }> = {
   "/customers": { title: "Suspicious Customer Management", crumb: "Customers" },
   "/vouchers": { title: "Voucher Management", crumb: "Vouchers" },
   "/approvals": { title: "Approvals", crumb: "Approvals" },
-  "/wallet": { title: "Wallet & SuperCoins Configuration", crumb: "Wallet & SuperCoins" },
-  "/refunds": { title: "Refund Management", crumb: "Refunds" },
-  "/exceptions": { title: "Exception & Investigation Center", crumb: "Exceptions" },
   "/audit": { title: "Audit Logging", crumb: "Audit Log" },
 };

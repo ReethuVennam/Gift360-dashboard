@@ -83,38 +83,6 @@ const NAV_ITEMS_OPS: { to: string; label: string; icon: ReactElement; count?: st
       </>
     ),
   },
-  {
-    to: "/wallet",
-    label: "Wallet & SuperCoins",
-    icon: (
-      <>
-        <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" />
-        <path d="M3 7v10a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
-        <path d="M17 12h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3a2 2 0 0 1 0-4z" />
-      </>
-    ),
-  },
-  {
-    to: "/refunds",
-    label: "Refunds",
-    icon: (
-      <>
-        <path d="M3 12a9 9 0 1 0 3-6.7" />
-        <path d="M3 4v5h5" />
-        <path d="M12 8v4l3 2" strokeLinecap="round" />
-      </>
-    ),
-  },
-  {
-    to: "/exceptions",
-    label: "Exceptions",
-    icon: (
-      <>
-        <path d="M12 3 2 20h20z" />
-        <path d="M12 10v4M12 17h.01" />
-      </>
-    ),
-  },
 ];
 
 const NAV_ITEMS_COMPLIANCE: { to: string; label: string; icon: ReactElement }[] = [

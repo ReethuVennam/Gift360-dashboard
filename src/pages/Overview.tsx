@@ -128,51 +128,34 @@ export function Overview() {
         </div>
       </div>
 
-      <div className="grid-2">
-        <div className="panel">
-          <div className="panel-head">
-            <div>
-              <h3>Critical exceptions</h3>
-              <div className="desc">No backend endpoint yet — figures below are illustrative, not live</div>
-            </div>
-            <Link to="/exceptions" className="btn btn-ghost btn-sm">
-              View all <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-            </Link>
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h3>Recent activity</h3>
+            <div className="desc">Retries, refunds, config changes and admin actions</div>
           </div>
-          <div className="panel-body">
-            <p className="dim" style={{ fontSize: "12px" }}>Awaiting a backend endpoint for the exceptions feed — see the Exceptions page for details.</p>
-          </div>
+          <Link to="/audit" className="btn btn-ghost btn-sm">
+            Full log <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </Link>
         </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <div>
-              <h3>Recent activity</h3>
-              <div className="desc">Retries, refunds, config changes and admin actions</div>
-            </div>
-            <Link to="/audit" className="btn btn-ghost btn-sm">
-              Full log <svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-            </Link>
-          </div>
-          <div className="panel-body">
-            {activity.loading && <p className="dim">Loading…</p>}
-            {activity.error && <p className="dim">{activity.error}</p>}
-            {!activity.loading && !activity.error && (activity.data?.data.length ?? 0) === 0 && (
-              <p className="dim">No recent activity.</p>
-            )}
-            <div className="timeline">
-              {activity.data?.data.map((row, i) => (
-                <div className="t-item" key={i}>
-                  <span className={"t-dot " + dotClass(row.result)}></span>
-                  <div className="t-time">{new Date(row.created_at).toLocaleString()} · {row.admin_username}</div>
-                  <div className="t-title">{row.action} — {row.module}</div>
-                  <div className="t-desc">
-                    {row.target_id && <span className="mono">{row.target_id}</span>}
-                    {row.reason ? ` — ${row.reason}` : ""}
-                  </div>
+        <div className="panel-body">
+          {activity.loading && <p className="dim">Loading…</p>}
+          {activity.error && <p className="dim">{activity.error}</p>}
+          {!activity.loading && !activity.error && (activity.data?.data.length ?? 0) === 0 && (
+            <p className="dim">No recent activity.</p>
+          )}
+          <div className="timeline">
+            {activity.data?.data.map((row, i) => (
+              <div className="t-item" key={i}>
+                <span className={"t-dot " + dotClass(row.result)}></span>
+                <div className="t-time">{new Date(row.created_at).toLocaleString()} · {row.admin_username}</div>
+                <div className="t-title">{row.action} — {row.module}</div>
+                <div className="t-desc">
+                  {row.target_id && <span className="mono">{row.target_id}</span>}
+                  {row.reason ? ` — ${row.reason}` : ""}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -198,11 +181,6 @@ export function Overview() {
           <div className="r-icon"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M9 3v18" strokeDasharray="2 2"/></svg></div>
           <h4>Voucher failures</h4>
           <p>Date range + Voucher Generation Failed.</p>
-        </Link>
-        <Link className="report-card" to="/refunds">
-          <div className="r-icon"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2" strokeLinecap="round"/></svg></div>
-          <h4>Refund report</h4>
-          <p>Date range + refund status.</p>
         </Link>
       </div>
     </>

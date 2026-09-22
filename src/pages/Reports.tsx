@@ -4,7 +4,7 @@ import { Modal } from '../shared/Modal';
 import { useToast } from '../shared/ToastContext';
 import { api, ApiError } from '../lib/api';
 
-type ReportKey = 'recent' | 'successful' | 'pg' | 'supercoin' | 'voucher-failures' | 'wallet' | 'refund' | 'customer-history';
+type ReportKey = 'recent' | 'successful' | 'pg' | 'voucher-failures' | 'customer-history';
 
 interface ReportDef {
   key: ReportKey;
@@ -19,8 +19,6 @@ const REPORTS: ReportDef[] = [
   { key: 'successful', title: 'Successful orders', description: 'Orders with voucher status GENERATED.', badge: 'Custom range', supported: true },
   { key: 'pg', title: 'PG orders', description: 'Orders paid via UPI or Card.', badge: 'Custom range', supported: true },
   { key: 'voucher-failures', title: 'Voucher failures', description: 'Date range + Voucher Generation Failed.', badge: 'Last 7 days', supported: true },
-  { key: 'wallet', title: 'Wallet activity', description: 'Date range + wallet used / credited.', badge: 'Custom range', supported: false },
-  { key: 'refund', title: 'Refund report', description: 'Date range + refund status.', badge: 'Last 30 days', supported: false },
   { key: 'customer-history', title: 'Customer order history', description: 'Search customer / mobile → all authorized orders.', badge: 'Lookup', supported: true },
 ];
 

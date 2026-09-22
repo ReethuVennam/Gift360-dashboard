@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Drawer } from "./Drawer";
 import { RegenerateVoucherButton } from "./RegenerateVoucherButton";
 import { useToast } from "./ToastContext";
@@ -109,15 +108,14 @@ export function OrderDetailDrawer({ orderNumber, open, onClose }: OrderDetailDra
                 ))}
               </div>
             </div>
-            <div className="drawer-section">
-              <h4>Actions</h4>
-              <div className="flex gap-8">
-                {needsVoucherRegeneration && (
+            {needsVoucherRegeneration && (
+              <div className="drawer-section">
+                <h4>Actions</h4>
+                <div className="flex gap-8">
                   <RegenerateVoucherButton orderNumber={orderNumber!} orderItemId={items[0].order_item_id} />
-                )}
-                <Link className="btn btn-sm" to="/exceptions"><svg className="" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg> Open in Exceptions</Link>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>

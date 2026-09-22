@@ -10,9 +10,6 @@ import { Reports } from "./pages/Reports";
 import { Customers } from "./pages/Customers";
 import { Vouchers } from "./pages/Vouchers";
 import { Approvals } from "./pages/Approvals";
-import { Wallet } from "./pages/Wallet";
-import { Refunds } from "./pages/Refunds";
-import { Exceptions } from "./pages/Exceptions";
 import { AuditLog } from "./pages/AuditLog";
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
@@ -43,9 +40,6 @@ function App() {
         <Route path="customers" element={<Customers />} />
         <Route path="vouchers" element={<Vouchers />} />
         <Route path="approvals" element={<Approvals />} />
-        <Route path="wallet" element={<Wallet />} />
-        <Route path="refunds" element={<Refunds />} />
-        <Route path="exceptions" element={<Exceptions />} />
         <Route path="audit" element={<AuditLog />} />
       </Route>
     </Routes>
